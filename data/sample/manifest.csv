@@ -1,0 +1,37 @@
+dataset,file,split,labels,boxes
+PlantVillage,PlantVillage/Apple___Apple_scab/00075aa8-d81a-4184-8541-b692b78d398a___FREC_Scab 3335.JPG,sample,Apple___Apple_scab,0
+PlantVillage,PlantVillage/Apple___Apple_scab/01a66316-0e98-4d3b-a56f-d78752cd043f___FREC_Scab 3003.JPG,sample,Apple___Apple_scab,0
+PlantVillage,PlantVillage/Apple___Apple_scab/01f3deaa-6143-4b6c-9c22-620a46d8be04___FREC_Scab 3112.JPG,sample,Apple___Apple_scab,0
+PlantVillage,PlantVillage/Apple___Apple_scab/0208f4eb-45a4-4399-904e-989ac2c6257c___FREC_Scab 3037.JPG,sample,Apple___Apple_scab,0
+PlantVillage,PlantVillage/Apple___Cedar_apple_rust/025b2b9a-0ec4-4132-96ac-7f2832d0db4a___FREC_C.Rust 3655.JPG,sample,Apple___Cedar_apple_rust,0
+PlantVillage,PlantVillage/Apple___Cedar_apple_rust/0321e067-d13b-47d0-b3a6-76ba6f357d02___FREC_C.Rust 3667.JPG,sample,Apple___Cedar_apple_rust,0
+PlantVillage,PlantVillage/Apple___Cedar_apple_rust/0340baaa-e9cc-4c04-8f9b-c204180d9ae3___FREC_C.Rust 3805.JPG,sample,Apple___Cedar_apple_rust,0
+PlantVillage,PlantVillage/Apple___Cedar_apple_rust/04da297e-5238-41b1-a8a0-0c87c6c2f21f___FREC_C.Rust 4394.JPG,sample,Apple___Cedar_apple_rust,0
+PlantVillage,PlantVillage/Potato___Early_blight/001187a0-57ab-4329-baff-e7246a9edeb0___RS_Early.B 8178.JPG,sample,Potato___Early_blight,0
+PlantVillage,PlantVillage/Potato___Early_blight/002a55fb-7a3d-4a3a-aca8-ce2d5ebc6925___RS_Early.B 8170.JPG,sample,Potato___Early_blight,0
+PlantVillage,PlantVillage/Potato___Early_blight/009c8c31-f22d-4ffd-8f16-189c6f06c577___RS_Early.B 7885.JPG,sample,Potato___Early_blight,0
+PlantVillage,PlantVillage/Potato___Early_blight/00d8f10f-5038-4e0f-bb58-0b885ddc0cc5___RS_Early.B 8722.JPG,sample,Potato___Early_blight,0
+PlantVillage,PlantVillage/Potato___Late_blight/0051e5e8-d1c4-4a84-bf3a-a426cdad6285___RS_LB 4640.JPG,sample,Potato___Late_blight,0
+PlantVillage,PlantVillage/Potato___Late_blight/00695906-210d-4a9d-822e-986a17384115___RS_LB 4026.JPG,sample,Potato___Late_blight,0
+PlantVillage,PlantVillage/Potato___Late_blight/006cc01a-1888-4326-9b62-a65cb55a6377___RS_LB 5207.JPG,sample,Potato___Late_blight,0
+PlantVillage,PlantVillage/Potato___Late_blight/0085ef03-aec3-431a-99a1-de286e10c0cf___RS_LB 2949.JPG,sample,Potato___Late_blight,0
+PlantVillage,PlantVillage/Tomato___Early_blight/0012b9d2-2130-4a06-a834-b1f3af34f57e___RS_Erly.B 8389.JPG,sample,Tomato___Early_blight,0
+PlantVillage,PlantVillage/Tomato___Early_blight/0034a551-9512-44e5-ba6c-827f85ecc688___RS_Erly.B 9432.JPG,sample,Tomato___Early_blight,0
+PlantVillage,PlantVillage/Tomato___Early_blight/004cbe60-8ff9-4965-92df-e86694d5e9ba___RS_Erly.B 8253.JPG,sample,Tomato___Early_blight,0
+PlantVillage,PlantVillage/Tomato___Early_blight/00c5c908-fc25-4710-a109-db143da23112___RS_Erly.B 7778.JPG,sample,Tomato___Early_blight,0
+PlantVillage,PlantVillage/Tomato___Tomato_Yellow_Leaf_Curl_Virus/00139ae8-d881-4edb-925f-46584b0bd68c___YLCV_NREC 2944.JPG,sample,Tomato___Tomato_Yellow_Leaf_Curl_Virus,0
+PlantVillage,PlantVillage/Tomato___Tomato_Yellow_Leaf_Curl_Virus/0036c89d-7743-4895-9fcf-b8d2c1fc8455___YLCV_NREC 0313.JPG,sample,Tomato___Tomato_Yellow_Leaf_Curl_Virus,0
+PlantVillage,PlantVillage/Tomato___Tomato_Yellow_Leaf_Curl_Virus/003bce78-28c9-4612-b148-f621e9a23bd4___YLCV_GCREC 5154.JPG,sample,Tomato___Tomato_Yellow_Leaf_Curl_Virus,0
+PlantVillage,PlantVillage/Tomato___Tomato_Yellow_Leaf_Curl_Virus/004273e3-e283-4ec6-b597-d0de1bfbc590___YLCV_GCREC 2434.JPG,sample,Tomato___Tomato_Yellow_Leaf_Curl_Virus,0
+PlantDoc,PlantDoc/images/plantdoc_01.jpg,test,Potato leaf early blight; Potato leaf early blight; Potato leaf early blight; Potato leaf early blight,4
+PlantDoc,PlantDoc/images/plantdoc_02.jpg,test,Potato leaf late blight; Potato leaf late blight; Potato leaf late blight,3
+PlantDoc,PlantDoc/images/plantdoc_03.jpg,test,Apple rust leaf,1
+PlantDoc,PlantDoc/images/plantdoc_04.jpg,test,Apple rust leaf; Apple rust leaf,2
+PlantDoc,PlantDoc/images/plantdoc_05.jpg,test,Apple Scab Leaf,1
+PlantDoc,PlantDoc/images/plantdoc_06.jpg,test,Apple Scab Leaf; Apple Scab Leaf,2
+PlantDoc,PlantDoc/images/plantdoc_07.jpg,test,Tomato Early blight leaf,1
+PlantDoc,PlantDoc/images/plantdoc_08.jpg,test,Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus,11
+PlantDoc,PlantDoc/images/plantdoc_09.jpg,test,Tomato Early blight leaf,1
+PlantDoc,PlantDoc/images/plantdoc_10.jpg,test,Potato leaf early blight; Potato leaf early blight; Potato leaf early blight; Potato leaf early blight; Potato leaf early blight; Potato leaf early blight,6
+PlantDoc,PlantDoc/images/plantdoc_11.jpg,test,Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus; Tomato leaf yellow virus,5
+PlantDoc,PlantDoc/images/plantdoc_12.jpg,test,Potato leaf late blight,1

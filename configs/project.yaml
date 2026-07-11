@@ -1,0 +1,40 @@
+project:
+  seed: 42
+  image_size: 224
+  output_dir: outputs
+  model_dir: models
+
+classification:
+  models:
+    - baseline_cnn
+    - efficientnet_b0
+    - mobilenet_v2
+  primary_metric: macro_f1
+  batch_size: 32
+  epochs: 30
+
+detection:
+  model: yolo11n.pt
+  image_size: 640
+  epochs: 50
+
+robustness:
+  corruptions:
+    - gaussian_blur
+    - brightness
+    - contrast
+    - jpeg_compression
+    - occlusion
+    - crop
+  severity_levels: [1, 2, 3, 4, 5]
+
+# Confirm every mapping manually before creating PlantDoc classification crops.
+plantdoc_to_plantvillage:
+  Apple Scab Leaf: Apple___Apple_scab
+  Apple rust leaf: Apple___Cedar_apple_rust
+  Potato leaf early blight: Potato___Early_blight
+  Potato leaf late blight: Potato___Late_blight
+  Tomato Early blight leaf: Tomato___Early_blight
+  Tomato leaf late blight: Tomato___Late_blight
+  Tomato Septoria leaf spot: Tomato___Septoria_leaf_spot
+  Tomato leaf yellow virus: Tomato___Tomato_Yellow_Leaf_Curl_Virus

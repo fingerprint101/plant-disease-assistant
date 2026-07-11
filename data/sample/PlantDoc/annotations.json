@@ -1,0 +1,490 @@
+[
+  {
+    "file": "images/plantdoc_01.jpg",
+    "source_image_id": 12,
+    "source_split": "test",
+    "width": 2848,
+    "height": 2136,
+    "annotations": [
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          1283.0,
+          849.0,
+          1428.0,
+          1124.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          726.0,
+          70.0,
+          828.0,
+          811.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          217.0,
+          798.0,
+          779.0,
+          711.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          694.0,
+          962.0,
+          604.0,
+          1002.0
+        ],
+        "sample_class_id": 2
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_02.jpg",
+    "source_image_id": 17,
+    "source_split": "test",
+    "width": 350,
+    "height": 233,
+    "annotations": [
+      {
+        "label": "Potato leaf late blight",
+        "bbox_xywh": [
+          187.0,
+          81.0,
+          129.0,
+          92.0
+        ],
+        "sample_class_id": 3
+      },
+      {
+        "label": "Potato leaf late blight",
+        "bbox_xywh": [
+          311.0,
+          51.0,
+          39.0,
+          117.0
+        ],
+        "sample_class_id": 3
+      },
+      {
+        "label": "Potato leaf late blight",
+        "bbox_xywh": [
+          215.0,
+          157.0,
+          101.0,
+          45.0
+        ],
+        "sample_class_id": 3
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_03.jpg",
+    "source_image_id": 25,
+    "source_split": "test",
+    "width": 3264,
+    "height": 2448,
+    "annotations": [
+      {
+        "label": "Apple rust leaf",
+        "bbox_xywh": [
+          331.0,
+          290.0,
+          2657.0,
+          1954.0
+        ],
+        "sample_class_id": 1
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_04.jpg",
+    "source_image_id": 26,
+    "source_split": "test",
+    "width": 425,
+    "height": 284,
+    "annotations": [
+      {
+        "label": "Apple rust leaf",
+        "bbox_xywh": [
+          88.0,
+          51.0,
+          155.0,
+          233.0
+        ],
+        "sample_class_id": 1
+      },
+      {
+        "label": "Apple rust leaf",
+        "bbox_xywh": [
+          218.0,
+          2.0,
+          140.0,
+          178.0
+        ],
+        "sample_class_id": 1
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_05.jpg",
+    "source_image_id": 46,
+    "source_split": "test",
+    "width": 496,
+    "height": 348,
+    "annotations": [
+      {
+        "label": "Apple Scab Leaf",
+        "bbox_xywh": [
+          41.0,
+          41.0,
+          423.0,
+          244.0
+        ],
+        "sample_class_id": 0
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_06.jpg",
+    "source_image_id": 56,
+    "source_split": "test",
+    "width": 500,
+    "height": 375,
+    "annotations": [
+      {
+        "label": "Apple Scab Leaf",
+        "bbox_xywh": [
+          149.0,
+          37.0,
+          311.0,
+          286.0
+        ],
+        "sample_class_id": 0
+      },
+      {
+        "label": "Apple Scab Leaf",
+        "bbox_xywh": [
+          51.0,
+          167.0,
+          140.0,
+          149.0
+        ],
+        "sample_class_id": 0
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_07.jpg",
+    "source_image_id": 100,
+    "source_split": "test",
+    "width": 768,
+    "height": 768,
+    "annotations": [
+      {
+        "label": "Tomato Early blight leaf",
+        "bbox_xywh": [
+          180.0,
+          86.0,
+          511.0,
+          575.0
+        ],
+        "sample_class_id": 4
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_08.jpg",
+    "source_image_id": 126,
+    "source_split": "test",
+    "width": 320,
+    "height": 240,
+    "annotations": [
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          237.0,
+          189.0,
+          64.0,
+          39.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          198.0,
+          147.0,
+          22.0,
+          38.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          175.0,
+          143.0,
+          28.0,
+          33.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          87.0,
+          48.0,
+          70.0,
+          39.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          102.0,
+          3.0,
+          68.0,
+          37.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          177.0,
+          10.0,
+          70.0,
+          44.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          194.0,
+          72.0,
+          80.0,
+          42.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          124.0,
+          109.0,
+          58.0,
+          38.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          97.0,
+          88.0,
+          63.0,
+          40.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          225.0,
+          137.0,
+          62.0,
+          48.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          1.0,
+          147.0,
+          124.0,
+          81.0
+        ],
+        "sample_class_id": 5
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_09.jpg",
+    "source_image_id": 165,
+    "source_split": "test",
+    "width": 638,
+    "height": 479,
+    "annotations": [
+      {
+        "label": "Tomato Early blight leaf",
+        "bbox_xywh": [
+          329.0,
+          202.0,
+          278.0,
+          187.0
+        ],
+        "sample_class_id": 4
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_10.jpg",
+    "source_image_id": 173,
+    "source_split": "test",
+    "width": 1024,
+    "height": 768,
+    "annotations": [
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          397.0,
+          320.0,
+          284.0,
+          175.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          213.0,
+          176.0,
+          165.0,
+          280.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          517.0,
+          532.0,
+          169.0,
+          204.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          594.0,
+          59.0,
+          218.0,
+          171.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          433.0,
+          149.0,
+          73.0,
+          87.0
+        ],
+        "sample_class_id": 2
+      },
+      {
+        "label": "Potato leaf early blight",
+        "bbox_xywh": [
+          64.0,
+          394.0,
+          182.0,
+          90.0
+        ],
+        "sample_class_id": 2
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_11.jpg",
+    "source_image_id": 266,
+    "source_split": "test",
+    "width": 638,
+    "height": 479,
+    "annotations": [
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          30.0,
+          274.0,
+          76.0,
+          53.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          134.0,
+          250.0,
+          89.0,
+          46.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          76.0,
+          164.0,
+          49.0,
+          84.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          447.0,
+          322.0,
+          115.0,
+          77.0
+        ],
+        "sample_class_id": 5
+      },
+      {
+        "label": "Tomato leaf yellow virus",
+        "bbox_xywh": [
+          429.0,
+          236.0,
+          115.0,
+          76.0
+        ],
+        "sample_class_id": 5
+      }
+    ]
+  },
+  {
+    "file": "images/plantdoc_12.jpg",
+    "source_image_id": 271,
+    "source_split": "test",
+    "width": 640,
+    "height": 480,
+    "annotations": [
+      {
+        "label": "Potato leaf late blight",
+        "bbox_xywh": [
+          6.0,
+          38.0,
+          611.0,
+          415.0
+        ],
+        "sample_class_id": 3
+      }
+    ]
+  }
+]
