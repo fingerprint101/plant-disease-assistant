@@ -2,7 +2,7 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 PYTHON := .venv/bin/python
 RUNTIME_ENV := XDG_CACHE_HOME=$(CURDIR)/.cache MPLCONFIGDIR=$(CURDIR)/.cache/matplotlib YOLO_CONFIG_DIR=$(CURDIR)/.cache
 
-.PHONY: setup kernel check notebook data data-plantvillage data-plantdoc clean-cache
+.PHONY: setup kernel check notebook data data-plantvillage data-plantdoc data-plantseg clean-cache
 
 setup:
 	UV_CACHE_DIR=$(UV_CACHE_DIR) uv venv --python 3.13
@@ -26,6 +26,9 @@ data-plantvillage:
 
 data-plantdoc:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantdoc
+
+data-plantseg:
+	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantseg
 
 clean-cache:
 	rm -rf .uv-cache

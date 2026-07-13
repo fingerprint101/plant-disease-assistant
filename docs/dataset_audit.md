@@ -1,18 +1,20 @@
 # Plant Disease Dataset Audit
 
-Audit date: 2026-07-10
+Audit date: 2026-07-13
 
 ## Verdict
 
 The project has enough good data to proceed. The strongest feasible design is:
 
 1. Train the disease classifier on PlantVillage.
-2. Train YOLO on a cleaned PlantDoc detection subset.
-3. Test robustness with both controlled image corruptions and real PlantDoc field images.
-4. Apply Grad-CAM to the classifier and compare its attention with PlantDoc boxes qualitatively.
-5. Keep PlantSeg as an optional segmentation extension, not part of the minimum viable project.
+2. Use PlantSeg as the main field dataset for classification and supervised localization.
+3. Derive detection boxes from PlantSeg masks rather than trusting every supplied COCO box.
+4. Compare Grad-CAM attention with PlantSeg masks quantitatively.
+5. Add cleaned PlantDoc data as external validation or supplementary detection data if time permits.
 
-PlantVillage is good enough for the main classification task. PlantDoc is good enough for a small YOLO experiment and field-domain evaluation, but its supplied split and annotations need cleaning before training.
+PlantVillage is a good controlled classification baseline. PlantSeg supports the main field-image,
+detection, segmentation and explanation experiments, but requires a preprocessing pass. PlantDoc
+remains useful for external validation, but its supplied split and annotations also need cleaning.
 
 ## Downloaded Data
 
@@ -36,10 +38,13 @@ PlantVillage is good enough for the main classification task. PlantDoc is good e
 
 ### PlantSeg
 
-- Source: [Zenodo record 14935094](https://zenodo.org/records/14935094)
-- Published archive size: approximately 1.7 GB.
-- The archive was not retained because the Zenodo transfer repeatedly timed out and then ran at an estimated ten-hour duration.
-- This does not block the recommended project because PlantSeg is only needed for a true pixel-level segmentation branch.
+- Source: [latest published Zenodo release](https://zenodo.org/records/17719108)
+- DOI: `10.5281/zenodo.17719108`.
+- Local archive: `data/downloads/plantseg/plantseg.zip`.
+- Extracted data: `data/raw/PlantSeg/plantseg/`.
+- Archive size: 1,057,281,724 bytes.
+- MD5: `9358a66dff88cdd15c4fe009763c40a3` (verified).
+- Release license: CC BY-NC 4.0; per-image metadata lists 7,741 CC-BY-NC and 33 CC0 images.
 
 ## PlantVillage Findings
 
@@ -93,6 +98,34 @@ The boxes also have mixed meaning. Visual inspection shows that some boxes tight
 
 PlantDoc and PlantVillage do not share an identical label taxonomy. Create an explicit mapping table for the overlapping crop-disease pairs and report results only on that shared subset. Do not treat differently named classes as equivalent without manual review.
 
+## PlantSeg Findings
+
+| Check | Result |
+|---|---:|
+| Image/mask pairs | 7,774 |
+| Plants | 34 |
+| Plant-disease classes | 115 |
+| Train / validation / test | 5,367 / 846 / 1,561 |
+| Missing or corrupt files | 0 |
+| Median images per class | 55 |
+| Smallest / largest class | 3 / 323 |
+| EXIF orientation cases | 8 |
+| Masks with inconsistent encoded class value | 12 |
+| COCO images with mask/box disagreement | 220 |
+| COCO images with out-of-bounds boxes | 51 |
+| COCO images without annotations | 1 |
+
+PlantSeg is suitable for the project, but the PNG masks and `Metadata.csv` should be treated as
+the authoritative sources. Convert images with EXIF orientation applied, interpret each mask as a
+binary lesion mask, obtain the class from the metadata, and derive fresh boxes from connected mask
+regions. This avoids the empty COCO `categories` arrays, twelve inconsistent encoded class values,
+and the supplied box disagreements.
+
+The predefined training split contains all 115 classes. Validation is missing class ID 68 and test
+is missing class ID 41, while several classes contain very few images overall. Full 115-class
+results therefore require macro metrics and an explicit note that not every class is represented in
+every evaluation split. A reduced well-supported taxonomy is a reasonable course-project option.
+
 ## Recommended Experiments
 
 ### Classification
@@ -122,6 +155,9 @@ PlantDoc and PlantVillage do not share an identical label taxonomy. Create an ex
 - Raw measurements: `datasets/audit/audit_results.json`
 - PlantVillage contact sheet: `datasets/audit/plantvillage_samples.jpg`
 - PlantDoc box contact sheet: `datasets/audit/plantdoc_box_samples.jpg`
+- PlantSeg machine-readable audit: `outputs/plantseg_audit.json`
+- PlantSeg example and overlay: `outputs/dataset_examples/plantseg_example_annotated.jpg`
+- PlantSeg audit script: `scripts/audit_plantseg.py`
 - Audit script: `../Working Files/audit_plant_datasets.py`
 
 Run the audit from the vault root with a Python environment containing Pillow, NumPy, and PyArrow.

@@ -66,12 +66,14 @@ Or download them separately:
 ```bash
 make data-plantvillage
 make data-plantdoc
+make data-plantseg
 ```
 
 The downloader uses the public Hugging Face dataset repositories:
 
 - `mohanty/PlantVillage`
 - `agyaatcoder/PlantDoc`
+- PlantSeg Zenodo release `10.5281/zenodo.17719108`
 
 PlantVillage archives are extracted under `data/raw/PlantVillage`. PlantDoc Parquet shards are downloaded to `data/downloads/PlantDoc` and converted into:
 
@@ -91,6 +93,15 @@ Useful options:
 ```bash
 .venv/bin/python scripts/download_datasets.py --help
 .venv/bin/python scripts/extract_plantdoc.py --help
+.venv/bin/python scripts/audit_plantseg.py --help
+```
+
+PlantSeg is extracted under `data/raw/PlantSeg/plantseg`. Run its structural audit and
+export one complete example with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/audit_plantseg.py
+PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 ```
 
 ## Recommended Workflow

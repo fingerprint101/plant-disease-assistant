@@ -1,0 +1,103 @@
+{"kind":"deck","id":"pr/htf393","name":"Deck"}
+{"kind":"layout","layoutId":"/ppt/slideMasters/slideMaster1.xml","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"/ppt/slideLayouts/slideLayout1.xml","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/y90nupkv","slide":1,"title":"Plant Disease Assistant","textShapes":6}
+{"kind":"textbox","id":"sh/i1w3yp8f","slide":1,"text":"Plant Disease Assistant","textPreview":"Plant Disease Assistant","textChars":23,"textLines":1,"bbox":[180,245,1240,105]}
+{"kind":"textbox","id":"sh/547294r6","slide":1,"text":"Plant disease recognition in field images","textPreview":"Plant disease recognition in field images","textChars":41,"textLines":1,"bbox":[240,365,1120,72]}
+{"kind":"textbox","id":"sh/k3yl0zql","slide":1,"text":"Intelligent Systems Course Project","textPreview":"Intelligent Systems Course Project","textChars":34,"textLines":1,"bbox":[300,505,1000,48]}
+{"kind":"textbox","id":"sh/7qp4be9c","slide":1,"text":"Master's degree in Computer Engineering","textPreview":"Master's degree in Computer Engineering","textChars":39,"textLines":1,"bbox":[300,555,1000,48]}
+{"kind":"textbox","id":"sh/65g3298r","slide":1,"text":"A.Y. 2025 / 2026","textPreview":"A.Y. 2025 / 2026","textChars":16,"textLines":1,"bbox":[300,690,1000,48]}
+{"kind":"textbox","id":"sh/ts7md4r2","slide":1,"text":"UNIVERSITÀ DI PISA","textPreview":"UNIVERSITÀ DI PISA","textChars":18,"textLines":1,"bbox":[300,105,1000,60]}
+{"kind":"notes","id":"nt/y90nupkv","slide":1,"text":""}
+{"kind":"slide","id":"sl/hwbqtkby","slide":2,"title":"Problem Statement","textShapes":9}
+{"kind":"textbox","id":"sh/mxgjm5s7","slide":2,"text":"Problem Statement","textPreview":"Problem Statement","textChars":17,"textLines":1,"bbox":[90,72,1400,76]}
+{"kind":"textbox","id":"sh/9072xkry","slide":2,"text":"Disease classification and localization in non-ideal conditions","textPreview":"Disease classification and localization in non-ideal conditions","textChars":63,"textLines":1,"bbox":[94,158,1320,54]}
+{"kind":"textbox","id":"sh/ozy1ofad","slide":2,"text":"Ideal images show one clear leaf with good lighting and little background clutter.","textPreview":"Ideal images show one clear leaf with good lighting and little background clutter.","textChars":82,"textLines":1,"bbox":[96,242,1370,42]}
+{"kind":"textbox","id":"sh/b29kza94","slide":2,"text":"Field images add shadows, clutter, occlusion, scale changes and multiple leaves.","textPreview":"Field images add shadows, clutter, occlusion, scale changes and multiple leaves.","textChars":80,"textLines":1,"bbox":[96,290,1370,42]}
+{"kind":"textbox","id":"sh/a10jqpsj","slide":2,"text":"We expect classification and localization performance to decrease in non-ideal conditions.","textPreview":"We expect classification and localization performance to decrease in non-ideal conditions.","textChars":90,"textLines":1,"bbox":[96,338,1370,42]}
+{"kind":"textbox","id":"sh/x4r21kru","slide":2,"text":"IDEAL CONDITIONS\nCLEAR LEAF IMAGE","textPreview":"IDEAL CONDITIONS | CLEAR LEAF IMAGE","textChars":33,"textLines":2,"bbox":[100,422,520,58]}
+{"kind":"shape","id":"sh/r65knqtk","slide":2,"bbox":[740,615,120,56]}
+{"kind":"textbox","id":"sh/q5wjelsz","slide":2,"text":"NON-IDEAL CONDITIONS\nFIELD IMAGE","textPreview":"NON-IDEAL CONDITIONS | FIELD IMAGE","textChars":32,"textLines":2,"bbox":[980,422,520,58]}
+{"kind":"shape","id":"sh/9wnqhczy","slide":2,"bbox":[0,846,1600,54]}
+{"kind":"textbox","id":"sh/wjy9sry9","slide":2,"text":"Plant Disease Assistant  |  Intelligent Systems","textPreview":"Plant Disease Assistant  |  Intelligent Systems","textChars":47,"textLines":1,"bbox":[310,855,980,36]}
+{"kind":"textbox","id":"sh/xk7qlczu","slide":2,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[1532,856,48,34]}
+{"kind":"image","id":"im/xwne10je","slide":2,"name":"","geometry":"roundRect","bbox":[210,490,300,300]}
+{"kind":"image","id":"im/wved8fit","slide":2,"name":"","geometry":"roundRect","bbox":[1000,490,480,300]}
+{"kind":"notes","id":"nt/hwbqtkby","slide":2,"text":""}
+{"kind":"slide","id":"sl/ofy9wn61","slide":3,"title":"Machine Learning Tasks","textShapes":11}
+{"kind":"textbox","id":"sh/by1svqlc","slide":3,"text":"Machine Learning Tasks","textPreview":"Machine Learning Tasks","textChars":22,"textLines":1,"bbox":[90,72,1400,76]}
+{"kind":"textbox","id":"sh/d0jax03i","slide":3,"text":"INPUT\nLEAF IMAGE","textPreview":"INPUT | LEAF IMAGE","textChars":16,"textLines":2,"bbox":[70,245,260,64]}
+{"kind":"shape","id":"sh/298ryl4v","slide":3,"bbox":[345,400,85,45]}
+{"kind":"shape","id":"sh/3ah8rqlg","slide":3,"bbox":[455,300,275,230]}
+{"kind":"textbox","id":"sh/obq90bml","slide":3,"text":"1  CLASSIFICATION","textPreview":"1  CLASSIFICATION","textChars":17,"textLines":1,"bbox":[467,318,251,62]}
+{"kind":"textbox","id":"sh/pcjqtg36","slide":3,"text":"Identify the crop-disease category shown in the image.","textPreview":"Identify the crop-disease category shown in the image.","textChars":54,"textLines":1,"bbox":[469,392,247,110]}
+{"kind":"shape","id":"sh/m5cra54z","slide":3,"bbox":[755,400,85,45]}
+{"kind":"shape","id":"sh/n6ls3alk","slide":3,"bbox":[865,300,275,230]}
+{"kind":"textbox","id":"sh/n2l4fq98","slide":3,"text":"2  LOCALIZATION","textPreview":"2  LOCALIZATION","textChars":15,"textLines":1,"bbox":[877,318,251,62]}
+{"kind":"textbox","id":"sh/m1c3mlsn","slide":3,"text":"Identify the regions affected by the disease.","textPreview":"Identify the regions affected by the disease.","textChars":45,"textLines":1,"bbox":[879,392,247,110]}
+{"kind":"shape","id":"sh/943mhgre","slide":3,"bbox":[1165,400,85,45]}
+{"kind":"shape","id":"sh/83ulovat","slide":3,"bbox":[1275,300,245,230]}
+{"kind":"textbox","id":"sh/v6l4jq94","slide":3,"text":"3  ROBUSTNESS","textPreview":"3  ROBUSTNESS","textChars":13,"textLines":1,"bbox":[1287,318,221,62]}
+{"kind":"textbox","id":"sh/a5c3ql8z","slide":3,"text":"Compare performance in controlled and field conditions.","textPreview":"Compare performance in controlled and field conditions.","textChars":55,"textLines":1,"bbox":[1289,392,217,110]}
+{"kind":"shape","id":"sh/x8nml0ra","slide":3,"bbox":[430,610,1080,1]}
+{"kind":"textbox","id":"sh/w7ulsvqp","slide":3,"text":"The project combines disease recognition, affected-region localization and condition-based evaluation.","textPreview":"The project combines disease recognition, affected-region localization and condition-based evaluation.","textChars":102,"textLines":1,"bbox":[215,648,1170,58]}
+{"kind":"shape","id":"sh/ja54na9g","slide":3,"bbox":[0,846,1600,54]}
+{"kind":"textbox","id":"sh/f29gbyx0","slide":3,"text":"Plant Disease Assistant  |  Intelligent Systems","textPreview":"Plant Disease Assistant  |  Intelligent Systems","textChars":47,"textLines":1,"bbox":[310,855,980,36]}
+{"kind":"textbox","id":"sh/03ix43e5","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[1532,856,48,34]}
+{"kind":"image","id":"im/21kvutkb","slide":3,"name":"","geometry":"roundRect","bbox":[87.5,326,225,225]}
+{"kind":"notes","id":"nt/ofy9wn61","slide":3,"text":""}
+{"kind":"slide","id":"sl/jyx0ra1s","slide":4,"title":"Datasets","textShapes":10}
+{"kind":"textbox","id":"sh/e9sj2tsv","slide":4,"text":"Datasets","textPreview":"Datasets","textChars":8,"textLines":1,"bbox":[90,72,1400,76]}
+{"kind":"textbox","id":"sh/1cj2d8b6","slide":4,"text":"Two datasets represent the image conditions considered in the project.","textPreview":"Two datasets represent the image conditions considered in the project.","textChars":70,"textLines":1,"bbox":[94,165,650,76]}
+{"kind":"textbox","id":"sh/0ba143al","slide":4,"text":"Each dataset has a different role in the evaluation.","textPreview":"Each dataset has a different role in the evaluation.","textChars":52,"textLines":1,"bbox":[94,252,650,70]}
+{"kind":"textbox","id":"sh/rm1k7yt4","slide":4,"text":"PLANTVILLAGE - CONTROLLED IMAGES\nSingle leaves on simple backgrounds\nPurpose: classification in ideal conditions","textPreview":"PLANTVILLAGE - CONTROLLED IMAGES | Single leaves on simple backgrounds | Purpose: classification in ideal conditions","textChars":112,"textLines":3,"bbox":[98,350,620,90]}
+{"kind":"textbox","id":"sh/ql8jytsj","slide":4,"text":"PLANTSEG - FIELD IMAGES\nLeaves photographed in realistic scenes\nPurpose: classification and localization in non-ideal conditions","textPreview":"PLANTSEG - FIELD IMAGES | Leaves photographed in realistic scenes | Purpose: classification and localization in non-ideal conditions","textChars":128,"textLines":3,"bbox":[98,455,620,90]}
+{"kind":"textbox","id":"sh/doj29oba","slide":4,"text":"CONDITION COMPARISON\nClassifier performance in controlled and field images","textPreview":"CONDITION COMPARISON | Classifier performance in controlled and field images","textChars":74,"textLines":2,"bbox":[98,560,620,72]}
+{"kind":"textbox","id":"sh/sna103ap","slide":4,"text":"LOCALIZATION DATA\nPlantSeg masks identify affected regions","textPreview":"LOCALIZATION DATA | PlantSeg masks identify affected regions","textChars":58,"textLines":2,"bbox":[98,645,620,72]}
+{"kind":"shape","id":"sh/ih8ju9sn","slide":4,"bbox":[845,735,610,70]}
+{"kind":"textbox","id":"sh/kbm987y5","slide":4,"text":"Together, the datasets support classification, localization and robustness.","textPreview":"Together, the datasets support classification, localization and robustness.","textChars":75,"textLines":1,"bbox":[865,748,570,44]}
+{"kind":"shape","id":"sh/5cva1cfq","slide":4,"bbox":[0,846,1600,54]}
+{"kind":"textbox","id":"sh/w72947yt","slide":4,"text":"Plant Disease Assistant  |  Intelligent Systems","textPreview":"Plant Disease Assistant  |  Intelligent Systems","textChars":47,"textLines":1,"bbox":[310,855,980,36]}
+{"kind":"textbox","id":"sh/x8vaxsfe","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[1532,856,48,34]}
+{"kind":"image","id":"im/tcvm5gji","slide":4,"name":"","geometry":"roundRect","bbox":[844.12,205,611.76,520]}
+{"kind":"notes","id":"nt/jyx0ra1s","slide":4,"text":""}
+{"kind":"slide","id":"sl/i107q5of","slide":5,"title":"Models","textShapes":13}
+{"kind":"textbox","id":"sh/qd0bahob","slide":5,"text":"Models","textPreview":"Models","textChars":6,"textLines":1,"bbox":[90,72,1400,76]}
+{"kind":"textbox","id":"sh/dgbulwnm","slide":5,"text":"Classification identifies the disease; localization identifies the affected regions.","textPreview":"Classification identifies the disease; localization identifies the affected regions.","textChars":84,"textLines":1,"bbox":[94,165,1320,48]}
+{"kind":"shape","id":"sh/cf2tcr61","slide":5,"bbox":[100,220,310,56]}
+{"kind":"textbox","id":"sh/z2tcnm5s","slide":5,"text":"TASK / MODELS","textPreview":"TASK / MODELS","textChars":13,"textLines":1,"bbox":[112,232,286,34]}
+{"kind":"shape","id":"sh/yhkbe1o7","slide":5,"bbox":[410,220,650,56]}
+{"kind":"textbox","id":"sh/l4bupwny","slide":5,"text":"PURPOSE","textPreview":"PURPOSE","textChars":7,"textLines":1,"bbox":[422,232,626,34]}
+{"kind":"shape","id":"sh/032tgr6d","slide":5,"bbox":[1060,220,440,56]}
+{"kind":"textbox","id":"sh/n6dcr65o","slide":5,"text":"OUTPUT","textPreview":"OUTPUT","textChars":6,"textLines":1,"bbox":[1072,232,416,34]}
+{"kind":"shape","id":"sh/m5kbi1oj","slide":5,"bbox":[100,276,310,118]}
+{"kind":"textbox","id":"sh/w32dkbuh","slide":5,"text":"CLASSIFICATION\nEfficientNetB0\nMobileNetV2","textPreview":"CLASSIFICATION | EfficientNetB0 | MobileNetV2","textChars":41,"textLines":3,"bbox":[116,298,278,83]}
+{"kind":"shape","id":"sh/x4vedgvm","slide":5,"bbox":[410,276,650,118]}
+{"kind":"textbox","id":"sh/ahkvi1cb","slide":5,"text":"Recognize crop-disease categories in controlled and field images.","textPreview":"Recognize crop-disease categories in controlled and field images.","textChars":65,"textLines":1,"bbox":[426,298,618,83]}
+{"kind":"shape","id":"sh/v2twb6dw","slide":5,"bbox":[1060,276,440,118]}
+{"kind":"textbox","id":"sh/k7mxovud","slide":5,"text":"Disease label and prediction confidence.","textPreview":"Disease label and prediction confidence.","textChars":40,"textLines":1,"bbox":[1076,298,408,83]}
+{"kind":"shape","id":"sh/58vehgvy","slide":5,"bbox":[100,394,310,118]}
+{"kind":"textbox","id":"sh/i54fmlc7","slide":5,"text":"LOCALIZATION\nYOLO11n-seg\nGrad-CAM","textPreview":"LOCALIZATION | YOLO11n-seg | Grad-CAM","textChars":33,"textLines":3,"bbox":[116,416,278,83]}
+{"kind":"shape","id":"sh/j6dwfqds","slide":5,"bbox":[410,394,650,118]}
+{"kind":"textbox","id":"sh/sb6xsvu9","slide":5,"text":"Identify visible symptoms and the regions used by the classifiers.","textPreview":"Identify visible symptoms and the regions used by the classifiers.","textChars":66,"textLines":1,"bbox":[426,416,618,83]}
+{"kind":"shape","id":"sh/tcfel0vu","slide":5,"bbox":[1060,394,440,118]}
+{"kind":"textbox","id":"sh/hgrmpwj2","slide":5,"text":"Lesion mask and attention heatmap.","textPreview":"Lesion mask and attention heatmap.","textChars":34,"textLines":1,"bbox":[1076,416,408,83]}
+{"kind":"shape","id":"sh/2h0ni107","slide":5,"bbox":[0,846,1600,54]}
+{"kind":"textbox","id":"sh/atcjidg7","slide":5,"text":"Plant Disease Assistant  |  Intelligent Systems","textPreview":"Plant Disease Assistant  |  Intelligent Systems","textChars":47,"textLines":1,"bbox":[310,855,980,36]}
+{"kind":"textbox","id":"sh/vu5kbihc","slide":5,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1532,856,48,34]}
+{"kind":"notes","id":"nt/i107q5of","slide":5,"text":""}
+{"kind":"slide","id":"sl/x8f69ofe","slide":6,"title":"Robustness Checks","textShapes":10}
+{"kind":"textbox","id":"sh/lkrqp4ra","slide":6,"text":"Robustness Checks","textPreview":"Robustness Checks","textChars":17,"textLines":1,"bbox":[90,72,1400,76]}
+{"kind":"textbox","id":"sh/yhg7epsj","slide":6,"text":"Robustness checks cover controlled image changes and natural field conditions.","textPreview":"Robustness checks cover controlled image changes and natural field conditions.","textChars":78,"textLines":1,"bbox":[94,165,650,76]}
+{"kind":"textbox","id":"sh/zi98nu94","slide":6,"text":"Each condition is compared with a clear reference image.","textPreview":"Each condition is compared with a clear reference image.","textChars":56,"textLines":1,"bbox":[94,252,650,70]}
+{"kind":"textbox","id":"sh/87ipkzal","slide":6,"text":"CONTROLLED VARIANTS\nLow light, blur and sensor noise applied to a reference image","textPreview":"CONTROLLED VARIANTS | Low light, blur and sensor noise applied to a reference image","textChars":81,"textLines":2,"bbox":[98,350,620,90]}
+{"kind":"textbox","id":"sh/98rqt4r6","slide":6,"text":"FIELD CONDITIONS\nClutter, shadows, occlusion and variable framing","textPreview":"FIELD CONDITIONS | Clutter, shadows, occlusion and variable framing","textChars":65,"textLines":2,"bbox":[98,455,620,90]}
+{"kind":"textbox","id":"sh/ml07i9sv","slide":6,"text":"WHAT WE COMPARE\nAccuracy, confidence and prediction consistency","textPreview":"WHAT WE COMPARE | Accuracy, confidence and prediction consistency","textChars":63,"textLines":2,"bbox":[98,560,620,72]}
+{"kind":"textbox","id":"sh/7m98ru9g","slide":6,"text":"GOAL\nIdentify the conditions associated with the largest performance drop","textPreview":"GOAL | Identify the conditions associated with the largest performance drop","textChars":73,"textLines":2,"bbox":[98,645,620,72]}
+{"kind":"shape","id":"sh/pc76hkr2","slide":6,"bbox":[845,735,610,70]}
+{"kind":"textbox","id":"sh/h4bupgn6","slide":6,"text":"Code-generated examples from the same PlantVillage image.","textPreview":"Code-generated examples from the same PlantVillage image.","textChars":57,"textLines":1,"bbox":[865,748,570,44]}
+{"kind":"shape","id":"sh/w32twb6l","slide":6,"bbox":[0,846,1600,54]}
+{"kind":"textbox","id":"sh/5svutgni","slide":6,"text":"Plant Disease Assistant  |  Intelligent Systems","textPreview":"Plant Disease Assistant  |  Intelligent Systems","textChars":47,"textLines":1,"bbox":[310,855,980,36]}
+{"kind":"textbox","id":"sh/47mt0b6x","slide":6,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1532,856,48,34]}
+{"kind":"image","id":"im/kvatojut","slide":6,"name":"","geometry":"roundRect","alt":"Reference leaf image with low-light, blur and Gaussian-noise variants","bbox":[844.12,205,611.76,520]}
+{"kind":"notes","id":"nt/x8f69ofe","slide":6,"text":""}
