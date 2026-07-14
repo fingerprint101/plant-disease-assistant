@@ -43,6 +43,21 @@ UV_CACHE_DIR=.uv-cache uv pip install --python .venv/bin/python -r requirements.
 
 The project-local cache avoids depending on a global `uv` cache. Activate the environment with `source .venv/bin/activate`, or run commands directly through `.venv/bin/python`.
 
+## One-command Initialization
+
+Prepare and verify the complete core project with:
+
+```bash
+make init
+```
+
+This creates the Python environment when it is missing, downloads and extracts PlantVillage and
+PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV2, and YOLO11n checkpoints,
+and runs environment, dataset, classification, and detection smoke tests. The baseline CNN is
+initialized from scratch as designed, so it has no checkpoint to download. Existing prepared
+datasets and cached model checkpoints are reused without downloading them again. Results are
+printed directly in the terminal.
+
 ## Jupyter
 
 Start JupyterLab with:
@@ -58,8 +73,10 @@ Select the kernel named **Python (plant-disease-assistant)**. Begin with `notebo
 Download and prepare both datasets:
 
 ```bash
-make data
+make data-core
 ```
+
+Use `make data` to additionally download the optional PlantSeg dataset.
 
 Or download them separately:
 
@@ -116,6 +133,25 @@ PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 8. Compare clean, corrupted and real-field performance.
 9. Train YOLO on the cleaned PlantDoc detection split.
 10. Add Grad-CAM and the upload prototype after the evaluation pipeline is stable.
+
+## Model Smoke Test
+
+Download the official torchvision ImageNet weights for EfficientNetB0 and MobileNetV2 and
+validate all classifier architectures and YOLO11n against real project images with:
+
+```bash
+make check-models
+```
+
+The checkpoints are cached under `models/hub/checkpoints/`. The script replaces each pretrained
+ImageNet output layer with a 38-class PlantVillage head and checks output shape, finite values,
+softmax probabilities, and gradient flow. Results are printed directly in the terminal. The new
+disease-classification heads are randomly initialized and must still be trained on PlantVillage
+before their predictions are meaningful.
+
+YOLO11n is cached at `models/yolo11n.pt` and tested with a real PlantDoc image. Its downloaded
+weights are pretrained on COCO; the detector must still be trained on the cleaned PlantDoc labels
+before its disease-region detections are meaningful.
 
 ## Evaluation
 

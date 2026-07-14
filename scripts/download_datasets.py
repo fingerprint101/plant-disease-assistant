@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,7 @@ DATASETS = {
     "plantdoc": "agyaatcoder/PlantDoc",
     "plantseg": "10.5281/zenodo.17719108",
 }
+CORE_DATASETS = ("plantvillage", "plantdoc")
 
 PLANTSEG_URL = "https://zenodo.org/api/records/17719108/files/plantseg.zip/content"
 PLANTSEG_SIZE = 1_057_281_724
@@ -31,10 +33,53 @@ PLANTSEG_DOWNLOAD_PARTS = 8
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", choices=["all", *DATASETS], default="all")
+    parser.add_argument("--dataset", choices=["all", "core", *DATASETS], default="all")
     parser.add_argument("--force-download", action="store_true")
     parser.add_argument("--overwrite-extracted", action="store_true")
     return parser.parse_args()
+
+
+def extracted_dataset_is_ready(name: str) -> bool:
+    """Perform a cheap completeness check before making any network request."""
+    if name == "plantvillage":
+        color_dir = RAW_DIR / "PlantVillage" / "raw" / "color"
+        class_dirs = [path for path in color_dir.glob("*") if path.is_dir()]
+        image_count = sum(
+            1
+            for path in color_dir.rglob("*")
+            if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
+        )
+        return len(class_dirs) == 38 and image_count == 54_305
+    if name == "plantdoc":
+        destination = RAW_DIR / "PlantDoc"
+        required = (
+            destination / "annotations.json",
+            destination / "classes.txt",
+            destination / "extraction_report.json",
+            destination / "images" / "train",
+            destination / "images" / "test",
+            destination / "labels" / "train",
+            destination / "labels" / "test",
+        )
+        if not all(path.exists() for path in required):
+            return False
+        try:
+            report = json.loads(
+                (destination / "extraction_report.json").read_text(encoding="utf-8")
+            )
+            expected = int(report["statistics"]["images_written"])
+            records = json.loads(
+                (destination / "annotations.json").read_text(encoding="utf-8")
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return False
+        images = sum(1 for path in (destination / "images").rglob("*.jpg"))
+        labels = sum(1 for path in (destination / "labels").rglob("*.txt"))
+        return len(records) == expected and images == expected and labels == expected
+    if name == "plantseg":
+        destination = RAW_DIR / "PlantSeg" / "plantseg"
+        return all((destination / child).is_dir() for child in ("images", "annotations"))
+    raise ValueError(f"Unknown dataset: {name}")
 
 
 def download_snapshot(name: str, force_download: bool) -> Path:
@@ -235,8 +280,20 @@ def extract_plantdoc(snapshot: Path, overwrite: bool) -> None:
 def main() -> None:
     args = parse_args()
     ensure_project_directories()
-    selected = DATASETS if args.dataset == "all" else {args.dataset: DATASETS[args.dataset]}
+    if args.dataset == "all":
+        selected = DATASETS
+    elif args.dataset == "core":
+        selected = {name: DATASETS[name] for name in CORE_DATASETS}
+    else:
+        selected = {args.dataset: DATASETS[args.dataset]}
     for name in selected:
+        if (
+            not args.force_download
+            and not args.overwrite_extracted
+            and extracted_dataset_is_ready(name)
+        ):
+            print(f"{name} is already prepared under {RAW_DIR}; skipping download")
+            continue
         snapshot = (
             download_plantseg(args.force_download)
             if name == "plantseg"
