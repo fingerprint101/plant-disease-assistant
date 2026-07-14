@@ -2,17 +2,26 @@
 
 Course project on plant disease classification, localization and robustness under domain shift.
 
+## Documentation
+
+- [`docs/main.md`](docs/main.md): project objectives, architecture, experiments and deliverables.
+- [`docs/dataset.md`](docs/dataset.md): dataset roles, measurements, limitations and preparation rules.
+- [`docs/project_presentation.pptx`](docs/project_presentation.pptx): project presentation.
+
 ## Objective
 
-PlantVillage provides many labelled images, but its leaves are centered and photographed against simple backgrounds. PlantDoc is smaller and noisier, but contains realistic field photographs and bounding boxes. The project uses both datasets for different stages:
+PlantSeg is the primary dataset because it combines field photographs, 115 plant-disease classes,
+and lesion masks. PlantVillage is the secondary controlled dataset, while PlantDoc is retained as
+a backup external dataset. The project uses them as follows:
 
-1. Train classification models on PlantVillage.
-2. Adapt selected classifiers with taxonomy-matched PlantDoc crops.
-3. Train YOLO on cleaned PlantDoc bounding boxes.
-4. Generate Grad-CAM activation maps from the classifiers.
-5. Compare clean performance with synthetic corruptions and an untouched PlantDoc field test set.
+1. Train classification models on the cleaned PlantSeg split.
+2. Derive YOLO boxes from PlantSeg lesion masks and train localization models.
+3. Compare Grad-CAM activation maps quantitatively with PlantSeg masks.
+4. Use PlantVillage as a controlled secondary benchmark on a mapped taxonomy subset.
+5. Use cleaned PlantDoc only as backup external validation or supplementary detection data.
 
-The central experiment is whether PlantDoc adaptation improves field performance without causing an unacceptable loss on controlled PlantVillage images.
+The central experiment is how well classifiers and localization methods perform on PlantSeg field
+images, and how their behavior changes on the more controlled PlantVillage domain.
 
 ## Planned Models
 
@@ -31,16 +40,6 @@ source .venv/bin/activate
 make check
 ```
 
-Equivalent commands without `make`:
-
-```bash
-UV_CACHE_DIR=.uv-cache uv venv --python 3.13
-UV_CACHE_DIR=.uv-cache uv pip install --python .venv/bin/python -r requirements.txt
-.venv/bin/python -m ipykernel install --user \
-  --name plant-disease-assistant \
-  --display-name "Python (plant-disease-assistant)"
-```
-
 The project-local cache avoids depending on a global `uv` cache. Activate the environment with `source .venv/bin/activate`, or run commands directly through `.venv/bin/python`.
 
 ## One-command Initialization
@@ -51,8 +50,8 @@ Prepare and verify the complete core project with:
 make init
 ```
 
-This creates the Python environment when it is missing, downloads and extracts PlantVillage and
-PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV2, and YOLO11n checkpoints,
+This creates the Python environment when it is missing, downloads and extracts PlantSeg,
+PlantVillage, and PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV2, and YOLO11n checkpoints,
 and runs environment, dataset, classification, and detection smoke tests. The baseline CNN is
 initialized from scratch as designed, so it has no checkpoint to download. Existing prepared
 datasets and cached model checkpoints are reused without downloading them again. Results are
@@ -70,29 +69,32 @@ Select the kernel named **Python (plant-disease-assistant)**. Begin with `notebo
 
 ## Downloading Data
 
-Download and prepare both datasets:
+Download and prepare all three datasets:
 
 ```bash
-make data-core
+make data
 ```
 
-Use `make data` to additionally download the optional PlantSeg dataset.
+The explicit per-dataset targets remain available when only one source is needed.
 
 Or download them separately:
 
 ```bash
+make data-plantseg
 make data-plantvillage
 make data-plantdoc
-make data-plantseg
 ```
 
-The downloader uses the public Hugging Face dataset repositories:
+The downloader uses the PlantSeg Zenodo release and public Hugging Face dataset repositories:
 
+- PlantSeg Zenodo release `10.5281/zenodo.17719108`
 - `mohanty/PlantVillage`
 - `agyaatcoder/PlantDoc`
-- PlantSeg Zenodo release `10.5281/zenodo.17719108`
 
-PlantVillage archives are extracted under `data/raw/PlantVillage`. PlantDoc Parquet shards are downloaded to `data/downloads/PlantDoc` and converted into:
+PlantSeg is extracted under `data/raw/PlantSeg/plantseg` and is the primary source for
+classification, mask-supervised localization, and explanation evaluation. PlantVillage archives
+are extracted under `data/raw/PlantVillage` for controlled secondary experiments. PlantDoc
+Parquet shards are downloaded to `data/downloads/PlantDoc` and converted into:
 
 ```text
 data/raw/PlantDoc/
@@ -113,8 +115,7 @@ Useful options:
 .venv/bin/python scripts/audit_plantseg.py --help
 ```
 
-PlantSeg is extracted under `data/raw/PlantSeg/plantseg`. Run its structural audit and
-export one complete example with:
+Run the primary PlantSeg structural audit and export one complete example with:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/audit_plantseg.py
@@ -124,14 +125,14 @@ PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 ## Recommended Workflow
 
 1. Run `make check` and inspect the bundled sample notebook.
-2. Download the full datasets with `make data`.
-3. Audit duplicates, class counts and PlantDoc annotations.
-4. Define a shared PlantVillage/PlantDoc taxonomy before creating crops.
-5. Reserve a deduplicated PlantDoc field test set before fine-tuning.
-6. Train the PlantVillage-only baseline models.
-7. Fine-tune selected models on the PlantDoc training crops.
-8. Compare clean, corrupted and real-field performance.
-9. Train YOLO on the cleaned PlantDoc detection split.
+2. Download and verify all datasets with `make init`.
+3. Preprocess PlantSeg using `Metadata.csv` and binary lesion masks as authoritative sources.
+4. Train all classifiers on the cleaned PlantSeg split.
+5. Derive YOLO boxes from PlantSeg masks and train the detector.
+6. Compare Grad-CAM attention with PlantSeg masks.
+7. Map a supported PlantVillage subset for controlled secondary evaluation.
+8. Compare clean, corrupted and cross-domain performance.
+9. Clean PlantDoc only if backup external validation is needed.
 10. Add Grad-CAM and the upload prototype after the evaluation pipeline is stable.
 
 ## Model Smoke Test
@@ -144,13 +145,13 @@ make check-models
 ```
 
 The checkpoints are cached under `models/hub/checkpoints/`. The script replaces each pretrained
-ImageNet output layer with a 38-class PlantVillage head and checks output shape, finite values,
+ImageNet output layer with a 115-class PlantSeg head and checks output shape, finite values,
 softmax probabilities, and gradient flow. Results are printed directly in the terminal. The new
-disease-classification heads are randomly initialized and must still be trained on PlantVillage
+disease-classification heads are randomly initialized and must still be trained on PlantSeg
 before their predictions are meaningful.
 
-YOLO11n is cached at `models/yolo11n.pt` and tested with a real PlantDoc image. Its downloaded
-weights are pretrained on COCO; the detector must still be trained on the cleaned PlantDoc labels
+YOLO11n is cached at `models/yolo11n.pt` and tested with a real PlantSeg image. Its downloaded
+weights are pretrained on COCO; the detector must still be trained on boxes derived from PlantSeg masks
 before its disease-region detections are meaningful.
 
 ## Evaluation
@@ -172,14 +173,16 @@ Robustness metrics:
 - Absolute and relative macro-F1 drop.
 - Per-class recall drop.
 - Confidence and calibration changes by corruption type and severity.
-- Performance on the untouched taxonomy-matched PlantDoc field test set.
+- Performance on PlantSeg test images, controlled PlantVillage subsets, and optional PlantDoc backup data.
 
 ## Important Data Rules
 
 - Do not merge the datasets without an explicit label-mapping table.
-- Do not adapt on the PlantDoc images reserved for external testing.
+- Treat PlantSeg `Metadata.csv` and binary PNG masks as authoritative.
+- Preserve the predefined PlantSeg split and document classes absent from validation or test.
 - Deduplicate before creating final splits.
-- Treat PlantDoc boxes as disease-labelled leaves or visible symptom regions, not guaranteed lesion masks.
+- Use PlantVillage only after explicit taxonomy mapping to PlantSeg.
+- Treat PlantDoc as backup data; its boxes are mixed leaf/symptom annotations and require cleaning.
 - Keep corruption type and severity as metadata rather than using one standard/non-standard label.
 
 ## Device Support

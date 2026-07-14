@@ -19,11 +19,10 @@ from tqdm import tqdm
 from plant_disease.paths import DOWNLOADS_DIR, RAW_DIR, ensure_project_directories
 
 DATASETS = {
+    "plantseg": "10.5281/zenodo.17719108",
     "plantvillage": "mohanty/PlantVillage",
     "plantdoc": "agyaatcoder/PlantDoc",
-    "plantseg": "10.5281/zenodo.17719108",
 }
-CORE_DATASETS = ("plantvillage", "plantdoc")
 
 PLANTSEG_URL = "https://zenodo.org/api/records/17719108/files/plantseg.zip/content"
 PLANTSEG_SIZE = 1_057_281_724
@@ -33,7 +32,7 @@ PLANTSEG_DOWNLOAD_PARTS = 8
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", choices=["all", "core", *DATASETS], default="all")
+    parser.add_argument("--dataset", choices=["all", *DATASETS], default="all")
     parser.add_argument("--force-download", action="store_true")
     parser.add_argument("--overwrite-extracted", action="store_true")
     return parser.parse_args()
@@ -282,8 +281,6 @@ def main() -> None:
     ensure_project_directories()
     if args.dataset == "all":
         selected = DATASETS
-    elif args.dataset == "core":
-        selected = {name: DATASETS[name] for name in CORE_DATASETS}
     else:
         selected = {args.dataset: DATASETS[args.dataset]}
     for name in selected:

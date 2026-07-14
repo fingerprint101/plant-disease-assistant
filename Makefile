@@ -2,12 +2,12 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 PYTHON := .venv/bin/python
 RUNTIME_ENV := XDG_CACHE_HOME=$(CURDIR)/.cache MPLCONFIGDIR=$(CURDIR)/.cache/matplotlib YOLO_CONFIG_DIR=$(CURDIR)/.cache
 
-.PHONY: init setup kernel check check-datasets check-models notebook data data-core data-plantvillage data-plantdoc data-plantseg clean-cache
+.PHONY: init setup kernel check check-datasets check-models notebook data data-plantvillage data-plantdoc data-plantseg clean-cache
 
 init:
 	@if [ ! -x "$(PYTHON)" ]; then $(MAKE) setup; else echo "Python environment already exists; skipping setup"; fi
 	$(MAKE) check
-	$(MAKE) data-core
+	$(MAKE) data
 	$(MAKE) check-datasets
 	$(MAKE) check-models
 
@@ -34,17 +34,14 @@ notebook:
 data:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset all
 
-data-core:
-	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset core
+data-plantseg:
+	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantseg
 
 data-plantvillage:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantvillage
 
 data-plantdoc:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantdoc
-
-data-plantseg:
-	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/download_datasets.py --dataset plantseg
 
 clean-cache:
 	rm -rf .uv-cache

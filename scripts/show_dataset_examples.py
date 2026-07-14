@@ -238,9 +238,9 @@ def export_plantseg() -> dict:
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     records = {
+        "plantseg": export_plantseg(),
         "plantvillage": export_plantvillage(),
         "plantdoc": export_plantdoc(),
-        "plantseg": export_plantseg(),
     }
     output_path = OUTPUT_DIR / "records.json"
     output_path.write_text(json.dumps(records, indent=2), encoding="utf-8")

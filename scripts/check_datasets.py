@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Run basic integrity checks on the two core project datasets."""
+"""Run basic integrity checks on all project datasets."""
 
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
@@ -11,6 +12,47 @@ from PIL import Image
 from plant_disease.paths import RAW_DIR
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+
+
+def check_plantseg(raw_dir: Path) -> dict[str, object]:
+    root = raw_dir / "PlantSeg" / "plantseg"
+    metadata_path = root / "Metadata.csv"
+    with metadata_path.open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if len(rows) != 7_774:
+        raise RuntimeError(f"PlantSeg has {len(rows)} metadata rows; expected 7,774")
+    classes = {(row["Plant"], row["Disease"]) for row in rows}
+    if len(classes) != 115:
+        raise RuntimeError(f"PlantSeg has {len(classes)} classes; expected 115")
+
+    split_names = {"Training": "train", "Validation": "val", "Test": "test"}
+    missing = []
+    for row in rows:
+        split = split_names[row["Split"]]
+        image_path = root / "images" / split / row["Name"]
+        mask_path = root / "annotations" / split / row["Label file"]
+        if not image_path.is_file():
+            missing.append(str(image_path))
+        if not mask_path.is_file():
+            missing.append(str(mask_path))
+    if missing:
+        raise RuntimeError(f"PlantSeg has {len(missing)} missing files; first: {missing[0]}")
+
+    sample_indices = sorted({0, len(rows) // 2, len(rows) - 1})
+    for index in sample_indices:
+        row = rows[index]
+        split = split_names[row["Split"]]
+        image = decode_image(root / "images" / split / row["Name"])
+        mask = decode_image(root / "annotations" / split / row["Label file"])
+        if image["size"] != mask["size"]:
+            raise RuntimeError(f"PlantSeg image/mask size mismatch for {row['Name']}")
+    return {
+        "status": "ok",
+        "classes": len(classes),
+        "images": len(rows),
+        "masks": len(rows),
+        "decoded_samples": len(sample_indices),
+    }
 
 
 def image_files(directory: Path) -> list[Path]:
@@ -111,8 +153,9 @@ def check_plantdoc(raw_dir: Path) -> dict[str, object]:
 
 def main() -> None:
     results = {
-        "plantvillage": check_plantvillage(RAW_DIR),
-        "plantdoc": check_plantdoc(RAW_DIR),
+        "plantseg (primary)": check_plantseg(RAW_DIR),
+        "plantvillage (secondary)": check_plantvillage(RAW_DIR),
+        "plantdoc (backup)": check_plantdoc(RAW_DIR),
     }
     for name, result in results.items():
         print(

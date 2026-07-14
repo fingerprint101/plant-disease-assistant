@@ -4,7 +4,14 @@ project:
   output_dir: outputs
   model_dir: models
 
+datasets:
+  primary: plantseg
+  secondary: plantvillage
+  backup: plantdoc
+
 classification:
+  dataset: plantseg
+  num_classes: 115
   models:
     - baseline_cnn
     - efficientnet_b0
@@ -14,11 +21,16 @@ classification:
   epochs: 30
 
 detection:
+  dataset: plantseg
+  annotations: derived_from_binary_masks
   model: yolo11n.pt
   image_size: 640
   epochs: 50
 
 robustness:
+  primary_test: plantseg
+  controlled_secondary: plantvillage
+  backup_external: plantdoc
   corruptions:
     - gaussian_blur
     - brightness
@@ -28,7 +40,8 @@ robustness:
     - crop
   severity_levels: [1, 2, 3, 4, 5]
 
-# Confirm every mapping manually before creating PlantDoc classification crops.
+# Backup-only mapping for optional PlantDoc/PlantVillage comparisons.
+# Confirm every mapping manually before creating crops.
 plantdoc_to_plantvillage:
   Apple Scab Leaf: Apple___Apple_scab
   Apple rust leaf: Apple___Cedar_apple_rust
@@ -38,3 +51,129 @@ plantdoc_to_plantvillage:
   Tomato leaf late blight: Tomato___Late_blight
   Tomato Septoria leaf spot: Tomato___Septoria_leaf_spot
   Tomato leaf yellow virus: Tomato___Tomato_Yellow_Leaf_Curl_Virus
+
+# Disease-level overlap between the PlantDoc backup taxonomy and PlantSeg.
+# Generic labels such as "Apple leaf" and "Tomato leaf" are intentionally
+# excluded because PlantSeg does not contain healthy classes. The PlantDoc
+# spider-mite label is also excluded because PlantSeg has no matching pest class.
+plantdoc_to_plantseg:
+  Apple Scab Leaf:
+    class_id: 3
+    class_name: Apple / apple scab
+  Apple rust leaf:
+    class_id: 2
+    class_name: Apple / apple rust
+  Bell_pepper leaf spot:
+    class_id: 14
+    class_name: Bell pepper / bell pepper bacterial spot
+  Corn Gray leaf spot:
+    class_id: 44
+    class_name: Corn / corn gray leaf spot
+  Corn leaf blight:
+    class_id: 45
+    class_name: Corn / corn northern leaf blight
+  Corn rust leaf:
+    class_id: 46
+    class_name: Corn / corn rust
+  Potato leaf early blight:
+    class_id: 75
+    class_name: Potato / potato early blight
+  Potato leaf late blight:
+    class_id: 76
+    class_name: Potato / potato late blight
+  Squash Powdery mildew leaf:
+    class_id: 89
+    class_name: Squash / squash powdery mildew
+  Tomato Early blight leaf:
+    class_id: 97
+    class_name: Tomato / tomato early blight
+  Tomato Septoria leaf spot:
+    class_id: 101
+    class_name: Tomato / tomato septoria leaf spot
+  Tomato leaf bacterial spot:
+    class_id: 96
+    class_name: Tomato / tomato bacterial leaf spot
+  Tomato leaf late blight:
+    class_id: 98
+    class_name: Tomato / tomato late blight
+  Tomato leaf mosaic virus:
+    class_id: 100
+    class_name: Tomato / tomato mosaic virus
+  Tomato leaf yellow virus:
+    class_id: 102
+    class_name: Tomato / tomato yellow leaf curl virus
+  Tomato mold leaf:
+    class_id: 99
+    class_name: Tomato / tomato leaf mold
+  grape leaf black rot:
+    class_id: 58
+    class_name: Grape / grape black rot
+
+# Shared disease taxonomy for evaluating PlantSeg-trained classifiers on the
+# controlled PlantVillage secondary dataset. Healthy PlantVillage classes are
+# excluded because PlantSeg contains no healthy class. Generic PlantSeg labels
+# without a defensible disease-level equivalent are also excluded.
+plantseg_to_plantvillage:
+  Apple / apple black rot:
+    class_id: 0
+    plantvillage_class: Apple___Black_rot
+  Apple / apple rust:
+    class_id: 2
+    plantvillage_class: Apple___Cedar_apple_rust
+  Apple / apple scab:
+    class_id: 3
+    plantvillage_class: Apple___Apple_scab
+  Bell pepper / bell pepper bacterial spot:
+    class_id: 14
+    plantvillage_class: Pepper,_bell___Bacterial_spot
+  Cherry / cherry powdery mildew:
+    class_id: 37
+    plantvillage_class: Cherry_(including_sour)___Powdery_mildew
+  Citrus / citrus greening disease:
+    class_id: 39
+    plantvillage_class: Orange___Haunglongbing_(Citrus_greening)
+  Corn / corn gray leaf spot:
+    class_id: 44
+    plantvillage_class: Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot
+  Corn / corn northern leaf blight:
+    class_id: 45
+    plantvillage_class: Corn_(maize)___Northern_Leaf_Blight
+  Corn / corn rust:
+    class_id: 46
+    plantvillage_class: Corn_(maize)___Common_rust_
+  Grape / grape black rot:
+    class_id: 58
+    plantvillage_class: Grape___Black_rot
+  Potato / potato early blight:
+    class_id: 75
+    plantvillage_class: Potato___Early_blight
+  Potato / potato late blight:
+    class_id: 76
+    plantvillage_class: Potato___Late_blight
+  Squash / squash powdery mildew:
+    class_id: 89
+    plantvillage_class: Squash___Powdery_mildew
+  Strawberry / strawberry leaf scorch:
+    class_id: 91
+    plantvillage_class: Strawberry___Leaf_scorch
+  Tomato / tomato bacterial leaf spot:
+    class_id: 96
+    plantvillage_class: Tomato___Bacterial_spot
+  Tomato / tomato early blight:
+    class_id: 97
+    plantvillage_class: Tomato___Early_blight
+  Tomato / tomato late blight:
+    class_id: 98
+    plantvillage_class: Tomato___Late_blight
+  Tomato / tomato leaf mold:
+    class_id: 99
+    plantvillage_class: Tomato___Leaf_Mold
+  Tomato / tomato mosaic virus:
+    class_id: 100
+    plantvillage_class: Tomato___Tomato_mosaic_virus
+  Tomato / tomato septoria leaf spot:
+    class_id: 101
+    plantvillage_class: Tomato___Septoria_leaf_spot
+  Tomato / tomato yellow leaf curl virus:
+    class_id: 102
+    plantvillage_class: Tomato___Tomato_Yellow_Leaf_Curl_Virus

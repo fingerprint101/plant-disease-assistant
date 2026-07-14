@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import os
 from pathlib import Path
@@ -34,14 +35,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-dir", type=Path, default=MODELS_DIR)
     parser.add_argument(
-        "--plantvillage-dir",
+        "--plantseg-dir",
         type=Path,
-        default=RAW_DIR / "PlantVillage" / "raw" / "color",
-    )
-    parser.add_argument(
-        "--plantdoc-dir",
-        type=Path,
-        default=RAW_DIR / "PlantDoc" / "images",
+        default=RAW_DIR / "PlantSeg" / "plantseg",
     )
     return parser.parse_args()
 
@@ -52,17 +48,6 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-
-
-def sample_images(directory: Path, count: int) -> list[Path]:
-    images = sorted(
-        path
-        for path in directory.rglob("*")
-        if path.suffix.lower() in {".jpg", ".jpeg", ".png"}
-    )
-    if len(images) < count:
-        raise FileNotFoundError(f"Expected at least {count} images below {directory}")
-    return images[:count]
 
 
 def verify_classifier_checkpoint(name: str, model_dir: Path) -> None:
@@ -77,23 +62,37 @@ def verify_classifier_checkpoint(name: str, model_dir: Path) -> None:
         raise RuntimeError(f"Checksum verification failed for {checkpoint}")
 
 
+def plantseg_samples(dataset_dir: Path, count: int) -> tuple[list[Path], int]:
+    with (dataset_dir / "Metadata.csv").open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    classes = {(row["Plant"], row["Disease"]) for row in rows}
+    split_names = {"Training": "train", "Validation": "val", "Test": "test"}
+    paths = [
+        dataset_dir / "images" / split_names[row["Split"]] / row["Name"]
+        for row in rows[:count]
+    ]
+    if len(paths) < count or not all(path.is_file() for path in paths):
+        raise FileNotFoundError(f"Expected at least {count} PlantSeg images")
+    return paths, len(classes)
+
+
 def check_classifiers(dataset_dir: Path, model_dir: Path) -> None:
-    class_names = sorted(path.name for path in dataset_dir.iterdir() if path.is_dir())
-    if len(class_names) != 38:
-        raise RuntimeError(f"Expected 38 PlantVillage classes, found {len(class_names)}")
+    image_paths, num_classes = plantseg_samples(dataset_dir, 2)
+    if num_classes != 115:
+        raise RuntimeError(f"Expected 115 PlantSeg classes, found {num_classes}")
     transform = classification_transform()
     batch = torch.stack(
-        [transform(Image.open(path).convert("RGB")) for path in sample_images(dataset_dir, 2)]
+        [transform(Image.open(path).convert("RGB")) for path in image_paths]
     )
 
     for name in CLASSIFICATION_MODELS:
         print(f"Checking {name} ...", flush=True)
-        model = build_classifier(name, num_classes=len(class_names), pretrained=True)
+        model = build_classifier(name, num_classes=num_classes, pretrained=True)
         model.eval()
         with torch.inference_mode():
             logits = model(batch)
             probabilities = logits.softmax(dim=1)
-        expected_shape = (batch.shape[0], len(class_names))
+        expected_shape = (batch.shape[0], num_classes)
         if tuple(logits.shape) != expected_shape or not torch.isfinite(logits).all():
             raise RuntimeError(f"{name} returned invalid logits with shape {tuple(logits.shape)}")
         if not torch.allclose(probabilities.sum(dim=1), torch.ones(batch.shape[0]), atol=1e-5):
@@ -126,7 +125,7 @@ def check_classifiers(dataset_dir: Path, model_dir: Path) -> None:
         )
 
 
-def check_detector(plantdoc_dir: Path, model_dir: Path) -> None:
+def check_detector(plantseg_dir: Path, model_dir: Path) -> None:
     config = yaml.safe_load((PROJECT_ROOT / "configs" / "project.yaml").read_text())
     checkpoint = model_dir / str(config["detection"]["model"])
     existed = checkpoint.is_file()
@@ -138,7 +137,7 @@ def check_detector(plantdoc_dir: Path, model_dir: Path) -> None:
     )
     model = load_yolo(checkpoint.name, model_dir=model_dir)
     results = model.predict(
-        source=str(sample_images(plantdoc_dir, 1)[0]),
+        source=str(plantseg_samples(plantseg_dir, 1)[0][0]),
         imgsz=320,
         device="cpu",
         verbose=False,
@@ -169,8 +168,8 @@ def main() -> None:
     os.environ["TORCH_HOME"] = str(args.model_dir.resolve())
     torch.manual_seed(42)
     torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
-    check_classifiers(args.plantvillage_dir, args.model_dir)
-    check_detector(args.plantdoc_dir, args.model_dir)
+    check_classifiers(args.plantseg_dir, args.model_dir)
+    check_detector(args.plantseg_dir, args.model_dir)
     print("All 4 planned models passed")
 
 
