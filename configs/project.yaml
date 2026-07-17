@@ -15,7 +15,7 @@ classification:
   models:
     - baseline_cnn
     - efficientnet_b0
-    - mobilenet_v2
+    - mobilenet_v3_large
   primary_metric: macro_f1
   batch_size: 32
   epochs: 30

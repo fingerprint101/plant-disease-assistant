@@ -58,7 +58,7 @@ The primary classifier predicts PlantSeg plant-disease classes. Three configurat
 
 - A small convolutional neural network trained from scratch.
 - EfficientNetB0 initialized with ImageNet weights and fine-tuned on PlantSeg.
-- MobileNetV2 initialized with ImageNet weights and fine-tuned on PlantSeg.
+- MobileNetV3-Large initialized with ImageNet weights and fine-tuned on PlantSeg.
 
 All models use the same cleaned split, preprocessing policy and evaluation protocol. Checkpoints
 are selected using validation macro F1.
@@ -90,7 +90,7 @@ severity increases.
 ### Classification Experiments
 
 1. Preprocess PlantSeg using metadata and masks as authoritative sources.
-2. Train the baseline CNN, EfficientNetB0 and MobileNetV2 on the same split.
+2. Train the baseline CNN, EfficientNetB0 and MobileNetV3-Large on the same split.
 3. Use class weighting or balanced sampling to address rare classes.
 4. Compare macro F1, balanced accuracy, per-class recall, calibration, model size and inference time.
 5. Evaluate a manually mapped PlantVillage subset as the secondary domain.

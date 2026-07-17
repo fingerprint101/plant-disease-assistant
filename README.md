@@ -26,7 +26,7 @@ images, and how their behavior changes on the more controlled PlantVillage domai
 ## Planned Models
 
 - Small CNN trained from scratch as the classification baseline.
-- EfficientNetB0 and MobileNetV2 initialized with ImageNet weights.
+- EfficientNetB0 and MobileNetV3-Large initialized with ImageNet weights.
 - YOLO nano or small for disease-labelled leaf or symptom-region detection.
 - Grad-CAM for classifier activation visualization; Grad-CAM is not trained separately.
 
@@ -51,7 +51,7 @@ make init
 ```
 
 This creates the Python environment when it is missing, downloads and extracts PlantSeg,
-PlantVillage, and PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV2, and YOLO11n checkpoints,
+PlantVillage, and PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV3-Large, and YOLO11n checkpoints,
 and runs environment, dataset, classification, and detection smoke tests. The baseline CNN is
 initialized from scratch as designed, so it has no checkpoint to download. Existing prepared
 datasets and cached model checkpoints are reused without downloading them again. Results are
@@ -137,7 +137,7 @@ PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 
 ## Model Smoke Test
 
-Download the official torchvision ImageNet weights for EfficientNetB0 and MobileNetV2 and
+Download the official torchvision ImageNet weights for EfficientNetB0 and MobileNetV3-Large and
 validate all classifier architectures and YOLO11n against real project images with:
 
 ```bash

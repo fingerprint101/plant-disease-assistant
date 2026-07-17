@@ -135,7 +135,7 @@ every evaluation split. A reduced well-supported taxonomy is a reasonable course
 ### Classification
 
 - Use the predefined PlantSeg split with `Metadata.csv` as the class authority.
-- Compare a simple CNN with EfficientNetB0 and optionally MobileNetV2.
+- Compare a simple CNN with EfficientNetB0 and optionally MobileNetV3-Large.
 - Use macro F1, balanced accuracy, per-class recall, calibration error, and confusion matrices.
 - Fit preprocessing and class weights on training data only.
 - Evaluate only a manually mapped PlantVillage subset as the secondary controlled domain.

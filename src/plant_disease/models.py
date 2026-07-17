@@ -8,9 +8,9 @@ import torch
 from torch import nn
 from torchvision.models import (
     EfficientNet_B0_Weights,
-    MobileNet_V2_Weights,
+    MobileNet_V3_Large_Weights,
     efficientnet_b0,
-    mobilenet_v2,
+    mobilenet_v3_large,
 )
 from torchvision.transforms import v2
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from pytorch_grad_cam import GradCAM
     from ultralytics import YOLO
 
-CLASSIFICATION_MODELS = ("baseline_cnn", "efficientnet_b0", "mobilenet_v2")
+CLASSIFICATION_MODELS = ("baseline_cnn", "efficientnet_b0", "mobilenet_v3_large")
 DEFAULT_YOLO_MODEL = "yolo11n.pt"
 
 
@@ -67,10 +67,10 @@ def build_classifier(name: str, num_classes: int, pretrained: bool = True) -> nn
         model = efficientnet_b0(weights=weights)
         model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
         return model
-    if name == "mobilenet_v2":
-        weights = MobileNet_V2_Weights.DEFAULT if pretrained else None
-        model = mobilenet_v2(weights=weights)
-        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_classes)
+    if name == "mobilenet_v3_large":
+        weights = MobileNet_V3_Large_Weights.DEFAULT if pretrained else None
+        model = mobilenet_v3_large(weights=weights)
+        model.classifier[3] = nn.Linear(model.classifier[3].in_features, num_classes)
         return model
 
     choices = ", ".join(CLASSIFICATION_MODELS)
@@ -93,7 +93,7 @@ def gradcam_target_layer(name: str, model: nn.Module) -> nn.Module:
     """Return the final convolutional feature layer for a project classifier."""
     if name == "baseline_cnn":
         return model.features[-1][0]
-    if name in {"efficientnet_b0", "mobilenet_v2"}:
+    if name in {"efficientnet_b0", "mobilenet_v3_large"}:
         return model.features[-1]
     choices = ", ".join(CLASSIFICATION_MODELS)
     raise ValueError(f"Grad-CAM is not configured for {name!r}; choose one of: {choices}")

@@ -14,7 +14,7 @@ import yaml
 from PIL import Image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from torch import nn
-from torchvision.models import EfficientNet_B0_Weights, MobileNet_V2_Weights
+from torchvision.models import EfficientNet_B0_Weights, MobileNet_V3_Large_Weights
 
 from plant_disease.models import (
     CLASSIFICATION_MODELS,
@@ -27,7 +27,7 @@ from plant_disease.paths import MODELS_DIR, PROJECT_ROOT, RAW_DIR
 
 PRETRAINED_WEIGHTS = {
     "efficientnet_b0": EfficientNet_B0_Weights.DEFAULT,
-    "mobilenet_v2": MobileNet_V2_Weights.DEFAULT,
+    "mobilenet_v3_large": MobileNet_V3_Large_Weights.DEFAULT,
 }
 
 
