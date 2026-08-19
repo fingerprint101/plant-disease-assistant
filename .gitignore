@@ -9,6 +9,8 @@ __pycache__/
 .cache/
 
 data/raw/
+data/training/*
+data/tests/*
 data/processed/
 data/downloads/
 models/
@@ -16,6 +18,8 @@ outputs/
 runs/
 
 !data/raw/.gitkeep
+!data/training/.gitkeep
+!data/tests/.gitkeep
 !data/processed/.gitkeep
 !data/downloads/.gitkeep
 !models/.gitkeep

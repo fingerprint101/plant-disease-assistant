@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Create reproducible PlantSeg training and project test dataset views."""
+
+from __future__ import annotations
+
+import csv
+import os
+from pathlib import Path
+
+import yaml
+
+from plant_disease.paths import (
+    DOWNLOADS_DIR,
+    PROJECT_ROOT,
+    RAW_DIR,
+    TESTS_DIR,
+    TRAINING_DIR,
+    ensure_project_directories,
+)
+
+
+def create_relative_link(link: Path, target: Path) -> None:
+    """Create an idempotent relative symbolic link without replacing real files."""
+    relative_target = Path(os.path.relpath(target, start=link.parent))
+    if link.is_symlink() and link.readlink() == relative_target:
+        return
+    if link.exists() or link.is_symlink():
+        raise RuntimeError(f"Cannot create dataset link because {link} already exists")
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(relative_target, target_is_directory=target.is_dir())
+
+
+def write_csv(path: Path, rows: list[dict[str, str]], fieldnames: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def sync_image_links(destination: Path, sources: list[Path]) -> None:
+    """Make a directory contain exactly the requested generated image links."""
+    destination.mkdir(parents=True, exist_ok=True)
+    expected = {source.name for source in sources}
+    if len(expected) != len(sources):
+        raise RuntimeError(f"Duplicate filenames cannot be flattened into {destination}")
+    for existing in destination.iterdir():
+        if existing.name not in expected:
+            if not existing.is_symlink():
+                raise RuntimeError(f"Unexpected non-link file in generated view: {existing}")
+            existing.unlink()
+    for source in sources:
+        create_relative_link(destination / source.name, source)
+
+
+def read_plantseg_metadata(root: Path) -> tuple[list[dict[str, str]], list[str]]:
+    metadata = root / "Metadata.csv"
+    with metadata.open(encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        fieldnames = reader.fieldnames
+    if fieldnames is None:
+        raise RuntimeError(f"PlantSeg metadata has no header: {metadata}")
+    return rows, fieldnames
+
+
+def prepare_plantseg_training() -> None:
+    """Create a lightweight view containing only PlantSeg's official training split."""
+    source = RAW_DIR / "PlantSeg" / "plantseg"
+    required = (
+        source / "images" / "train",
+        source / "annotations" / "train",
+        source / "annotation_train.json",
+        source / "Metadata.csv",
+    )
+    if not all(path.exists() for path in required):
+        raise RuntimeError("PlantSeg must be downloaded before preparing its training view")
+
+    destination = TRAINING_DIR / "PlantSeg"
+    create_relative_link(destination / "images", source / "images" / "train")
+    create_relative_link(destination / "masks", source / "annotations" / "train")
+    create_relative_link(destination / "annotations.json", source / "annotation_train.json")
+    rows, fieldnames = read_plantseg_metadata(source)
+    training_rows = [row for row in rows if row["Split"] == "Training"]
+    write_csv(destination / "Metadata.csv", training_rows, fieldnames)
+    print(
+        f"PlantSeg training view ready at {destination} "
+        f"({len(training_rows):,} images; raw files are linked, not copied)"
+    )
+
+
+def prepare_test_datasets() -> None:
+    """Create clean, overlap, and robustness test views without copying images."""
+    plantseg = RAW_DIR / "PlantSeg" / "plantseg"
+    plantvillage = RAW_DIR / "PlantVillage"
+    pv_split = DOWNLOADS_DIR / "plantvillage" / "splits" / "color_test.txt"
+    config_path = PROJECT_ROOT / "configs" / "project.yaml"
+    required = (plantseg / "Metadata.csv", pv_split, config_path)
+    if not all(path.is_file() for path in required):
+        raise RuntimeError("PlantSeg and PlantVillage must be downloaded before test preparation")
+
+    plantseg_rows, plantseg_fields = read_plantseg_metadata(plantseg)
+    test_rows = [row for row in plantseg_rows if row["Split"] == "Test"]
+    full = TESTS_DIR / "PlantSeg" / "full"
+    create_relative_link(full / "images", plantseg / "images" / "test")
+    create_relative_link(full / "masks", plantseg / "annotations" / "test")
+    create_relative_link(full / "annotations.json", plantseg / "annotation_test.json")
+    write_csv(full / "Metadata.csv", test_rows, plantseg_fields)
+
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    mapping = config["plantseg_to_plantvillage"]
+    shared_names = set(mapping)
+    plantseg_overlap_rows = [
+        row for row in test_rows if f"{row['Plant']} / {row['Disease']}" in shared_names
+    ]
+    ps_overlap = TESTS_DIR / "overlap" / "PlantSeg"
+    sync_image_links(
+        ps_overlap / "images",
+        [plantseg / "images" / "test" / row["Name"] for row in plantseg_overlap_rows],
+    )
+    sync_image_links(
+        ps_overlap / "masks",
+        [plantseg / "annotations" / "test" / row["Label file"] for row in plantseg_overlap_rows],
+    )
+    write_csv(ps_overlap / "Metadata.csv", plantseg_overlap_rows, plantseg_fields)
+
+    village_to_shared = {
+        details["plantvillage_class"]: (shared_name, int(details["class_id"]))
+        for shared_name, details in mapping.items()
+    }
+    pv_rows = []
+    pv_sources = []
+    for relative_name in pv_split.read_text(encoding="utf-8").splitlines():
+        relative_path = Path(relative_name)
+        village_class = relative_path.parent.name
+        if village_class not in village_to_shared:
+            continue
+        shared_name, class_id = village_to_shared[village_class]
+        plant, disease = shared_name.split(" / ", maxsplit=1)
+        source = plantvillage / relative_path
+        pv_sources.append(source)
+        pv_rows.append(
+            {
+                "Name": source.name,
+                "Index": str(class_id),
+                "Plant": plant,
+                "Disease": disease,
+                "PlantVillage class": village_class,
+                "Split": "Test",
+                "Source path": relative_name,
+            }
+        )
+    pv_overlap = TESTS_DIR / "overlap" / "PlantVillage"
+    sync_image_links(pv_overlap / "images", pv_sources)
+    pv_fields = [
+        "Name",
+        "Index",
+        "Plant",
+        "Disease",
+        "PlantVillage class",
+        "Split",
+        "Source path",
+    ]
+    write_csv(pv_overlap / "Metadata.csv", pv_rows, pv_fields)
+
+    robustness = TESTS_DIR / "robustness" / "PlantSeg"
+    create_relative_link(robustness / "clean", full)
+    variant_rows = [
+        {"corruption": corruption, "severity": str(severity), "generation": "on_demand"}
+        for corruption in config["robustness"]["corruptions"]
+        for severity in config["robustness"]["severity_levels"]
+    ]
+    write_csv(
+        robustness / "variants.csv",
+        variant_rows,
+        ["corruption", "severity", "generation"],
+    )
+    print(
+        "Test views ready at "
+        f"{TESTS_DIR} (PlantSeg full: {len(test_rows):,}; overlap: "
+        f"{len(plantseg_overlap_rows):,} PlantSeg / {len(pv_rows):,} PlantVillage; "
+        f"robustness variants: {len(variant_rows)})"
+    )
+
+
+def main() -> None:
+    ensure_project_directories()
+    prepare_plantseg_training()
+    prepare_test_datasets()
+
+
+if __name__ == "__main__":
+    main()

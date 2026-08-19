@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from plant_disease.paths import RAW_DIR
+from plant_disease.paths import RAW_DIR, TESTS_DIR, TRAINING_DIR
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 
@@ -53,6 +53,59 @@ def check_plantseg(raw_dir: Path) -> dict[str, object]:
         "masks": len(rows),
         "decoded_samples": len(sample_indices),
     }
+
+
+def check_plantseg_training() -> None:
+    root = TRAINING_DIR / "PlantSeg"
+    with (root / "Metadata.csv").open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if len(rows) != 5_367 or any(row["Split"] != "Training" for row in rows):
+        raise RuntimeError("PlantSeg training view does not contain the official training split")
+    if len(image_files(root / "images")) != len(rows):
+        raise RuntimeError("PlantSeg training view image count does not match its metadata")
+    if len(image_files(root / "masks")) != len(rows):
+        raise RuntimeError("PlantSeg training view mask count does not match its metadata")
+    if not (root / "annotations.json").is_file():
+        raise RuntimeError("PlantSeg training view is missing annotations.json")
+    classes = {(row["Plant"], row["Disease"]) for row in rows}
+    if len(classes) != 115:
+        raise RuntimeError(f"PlantSeg training view has {len(classes)} classes; expected 115")
+    print(f"[ok] plantseg training view: {len(rows)} images, {len(classes)} classes")
+
+
+def csv_rows(path: Path) -> list[dict[str, str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def check_test_datasets() -> None:
+    full = TESTS_DIR / "PlantSeg" / "full"
+    full_rows = csv_rows(full / "Metadata.csv")
+    if len(full_rows) != 1_561 or len(image_files(full / "images")) != len(full_rows):
+        raise RuntimeError("Full PlantSeg test view is incomplete")
+    if len(image_files(full / "masks")) != len(full_rows):
+        raise RuntimeError("Full PlantSeg test mask view is incomplete")
+
+    ps_overlap = TESTS_DIR / "overlap" / "PlantSeg"
+    pv_overlap = TESTS_DIR / "overlap" / "PlantVillage"
+    ps_rows = csv_rows(ps_overlap / "Metadata.csv")
+    pv_rows = csv_rows(pv_overlap / "Metadata.csv")
+    if not ps_rows or len(image_files(ps_overlap / "images")) != len(ps_rows):
+        raise RuntimeError("PlantSeg overlap test view is incomplete")
+    if len(image_files(ps_overlap / "masks")) != len(ps_rows):
+        raise RuntimeError("PlantSeg overlap test masks are incomplete")
+    if not pv_rows or len(image_files(pv_overlap / "images")) != len(pv_rows):
+        raise RuntimeError("PlantVillage overlap test view is incomplete")
+    if {row["Index"] for row in ps_rows} != {row["Index"] for row in pv_rows}:
+        raise RuntimeError("Overlap test views do not contain the same class IDs")
+
+    variants = csv_rows(TESTS_DIR / "robustness" / "PlantSeg" / "variants.csv")
+    if len(variants) != 30:
+        raise RuntimeError(f"Robustness view has {len(variants)} variants; expected 30")
+    print(
+        f"[ok] test views: {len(full_rows)} full PlantSeg images, "
+        f"{len(ps_rows)}/{len(pv_rows)} overlap images, {len(variants)} robustness variants"
+    )
 
 
 def image_files(directory: Path) -> list[Path]:
@@ -152,6 +205,8 @@ def check_plantdoc(raw_dir: Path) -> dict[str, object]:
 
 
 def main() -> None:
+    check_plantseg_training()
+    check_test_datasets()
     results = {
         "plantseg (primary)": check_plantseg(RAW_DIR),
         "plantvillage (secondary)": check_plantvillage(RAW_DIR),

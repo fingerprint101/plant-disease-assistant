@@ -73,6 +73,7 @@ Download and prepare all three datasets:
 
 ```bash
 make data
+make prepare-data
 ```
 
 The explicit per-dataset targets remain available when only one source is needed.
@@ -92,7 +93,13 @@ The downloader uses the PlantSeg Zenodo release and public Hugging Face dataset 
 - `agyaatcoder/PlantDoc`
 
 PlantSeg is extracted under `data/raw/PlantSeg/plantseg` and is the primary source for
-classification, mask-supervised localization, and explanation evaluation. PlantVillage archives
+classification, mask-supervised localization, and explanation evaluation. `make prepare-data`
+creates an idempotent training-only view under `data/training/PlantSeg` containing the official
+5,367-image training split, its masks, filtered metadata, and COCO annotations. Images, masks, and
+annotations are linked to the raw extraction rather than duplicated. It also prepares the test
+views under `data/tests`: the complete PlantSeg test split, the mapped PlantSeg/PlantVillage
+21-class subsets, and the 30 configured PlantSeg robustness conditions. Robustness corruptions are
+generated on demand from the clean test view instead of storing duplicate images. PlantVillage archives
 are extracted under `data/raw/PlantVillage` for controlled secondary experiments. PlantDoc
 Parquet shards are downloaded to `data/downloads/PlantDoc` and converted into:
 

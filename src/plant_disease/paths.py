@@ -4,6 +4,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 DOWNLOADS_DIR = DATA_DIR / "downloads"
 RAW_DIR = DATA_DIR / "raw"
+TRAINING_DIR = DATA_DIR / "training"
+TESTS_DIR = DATA_DIR / "tests"
 PROCESSED_DIR = DATA_DIR / "processed"
 SAMPLE_DIR = DATA_DIR / "sample"
 MODELS_DIR = PROJECT_ROOT / "models"
@@ -14,6 +16,8 @@ def ensure_project_directories() -> None:
     for directory in (
         DOWNLOADS_DIR,
         RAW_DIR,
+        TRAINING_DIR,
+        TESTS_DIR,
         PROCESSED_DIR,
         SAMPLE_DIR,
         MODELS_DIR,
