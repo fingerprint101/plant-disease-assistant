@@ -160,11 +160,6 @@ every evaluation split. A reduced well-supported taxonomy is a reasonable course
 
 ## Validation and Reproduction
 
-- Dataset smoke tests: `scripts/check_datasets.py`
-- Dataset examples: `outputs/dataset_examples/`
-- PlantSeg machine-readable audit: `outputs/plantseg_audit.json`
-- PlantSeg example and overlay: `outputs/dataset_examples/plantseg_example_annotated.jpg`
-- PlantSeg audit script: `scripts/audit_plantseg.py`
-- Audit script: `../Working Files/audit_plant_datasets.py`
-
-Run the audit from the vault root with a Python environment containing Pillow, NumPy, and PyArrow.
+Run `make check-datasets` after preparing data. The checker validates raw files, prepared views,
+YOLO labels, test subsets and taxonomy mappings against their source metadata, extraction reports
+and `configs/project.yaml` rather than duplicating fixed dataset counts.

@@ -36,7 +36,6 @@ The project uses Python 3.13 and `uv`. From this directory:
 ```bash
 make setup
 source .venv/bin/activate
-make check
 ```
 
 The project-local cache avoids depending on a global `uv` cache. Activate the environment with `source .venv/bin/activate`, or run commands directly through `.venv/bin/python`.
@@ -51,7 +50,7 @@ make init
 
 This creates the Python environment when it is missing, downloads and extracts PlantSeg,
 PlantVillage, and PlantDoc when they are missing, caches the EfficientNetB0, MobileNetV3-Large, and YOLO11n checkpoints,
-and runs environment, dataset, classification, and detection smoke tests. The baseline CNN is
+and runs dataset, classification, and detection smoke tests. The baseline CNN is
 initialized from scratch as designed, so it has no checkpoint to download. Existing prepared
 datasets and cached model checkpoints are reused without downloading them again. Results are
 printed directly in the terminal.
@@ -119,20 +118,12 @@ Useful options:
 ```bash
 .venv/bin/python scripts/download_datasets.py --help
 .venv/bin/python scripts/extract_plantdoc.py --help
-.venv/bin/python scripts/audit_plantseg.py --help
-```
-
-Run the primary PlantSeg structural audit and export one complete example with:
-
-```bash
-PYTHONPATH=src .venv/bin/python scripts/audit_plantseg.py
-PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 ```
 
 ## Recommended Workflow
 
-1. Run `make check` and inspect the bundled sample notebook.
-2. Download and verify all datasets with `make init`.
+1. Download, prepare and verify all datasets and model dependencies with `make init`.
+2. Inspect the bundled sample notebook.
 3. Preprocess PlantSeg using `Metadata.csv` and binary lesion masks as authoritative sources.
 4. Train class-agnostic YOLO on boxes derived from PlantSeg masks.
 5. Generate predicted YOLO crops and train all classifiers on those crops.
@@ -140,7 +131,7 @@ PYTHONPATH=src .venv/bin/python scripts/show_dataset_examples.py
 7. Map a supported PlantVillage subset for controlled secondary evaluation.
 8. Compare clean, corrupted and cross-domain performance.
 9. Clean PlantDoc only if backup external validation is needed.
-10. Add Grad-CAM and the upload prototype after the evaluation pipeline is stable.
+10. Add the upload prototype after the evaluation pipeline is stable.
 
 ## Model Smoke Test
 
@@ -222,4 +213,4 @@ Robustness metrics:
 
 ## Device Support
 
-PyTorch will use CUDA when available, Apple Metal (`mps`) on compatible Macs, and otherwise the CPU. `scripts/check_environment.py` reports the selected device.
+PyTorch will use CUDA when available, Apple Metal (`mps`) on compatible Macs, and otherwise the CPU.

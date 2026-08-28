@@ -2,11 +2,10 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 PYTHON := .venv/bin/python
 RUNTIME_ENV := XDG_CACHE_HOME=$(CURDIR)/.cache MPLCONFIGDIR=$(CURDIR)/.cache/matplotlib YOLO_CONFIG_DIR=$(CURDIR)/.cache
 
-.PHONY: init setup kernel check check-datasets check-models train-yolo prepare-crops train-classifiers train-pipeline notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
+.PHONY: init setup kernel check-datasets check-models train-yolo prepare-crops train-classifiers train-pipeline notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
 
 init:
 	@if [ ! -x "$(PYTHON)" ]; then $(MAKE) setup; else echo "Python environment already exists; skipping setup"; fi
-	$(MAKE) check
 	$(MAKE) data
 	$(MAKE) prepare-data
 	$(MAKE) check-datasets
@@ -19,9 +18,6 @@ setup:
 
 kernel:
 	$(PYTHON) -m ipykernel install --user --name plant-disease-assistant --display-name "Python (plant-disease-assistant)"
-
-check:
-	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/check_environment.py
 
 check-datasets:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/check_datasets.py
