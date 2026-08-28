@@ -10,17 +10,18 @@ the primary dataset because it provides 7,774 image-mask pairs across 115 plant-
 PlantVillage is a secondary controlled benchmark, and PlantDoc is retained as backup external or
 supplementary data if its annotations can be cleaned and mapped safely.
 
-The main objective is to compare classification architectures, measure robustness under synthetic
-and cross-domain shifts, and evaluate whether model attention overlaps known lesion regions.
+The main objective is to evaluate a two-stage localization-to-classification pipeline, measure its
+robustness under synthetic and cross-domain shifts, and determine whether classifier attention
+overlaps known lesion regions.
 
 ## Proposed System
 
-The prototype accepts a leaf image and produces:
+The prototype accepts a leaf image and processes it in this order:
 
-1. A plant-disease prediction.
-2. The confidence score and most likely alternative classes.
-3. A Grad-CAM activation map from the classifier.
-4. Optional YOLO detections for lesion or symptom regions.
+1. A class-agnostic YOLO detector localizes visible lesion regions.
+2. The detected region is cropped and passed to a plant-disease classifier.
+3. The classifier returns a prediction, confidence score and likely alternatives.
+4. Grad-CAM explains the classifier decision within the localized crop.
 5. A warning when confidence is low or the image differs substantially from training conditions.
 
 A small Streamlit or Gradio interface can support the final demonstration. The main technical work
@@ -54,21 +55,24 @@ therefore reserved for backup external validation or supplementary detection dat
 
 ### Disease Classification
 
-The primary classifier predicts PlantSeg plant-disease classes. Three configurations are compared:
+The primary classifiers predict PlantSeg plant-disease classes from YOLO-generated lesion crops.
+Three configurations are compared:
 
 - A small convolutional neural network trained from scratch.
 - EfficientNetB0 initialized with ImageNet weights and fine-tuned on PlantSeg.
 - MobileNetV3-Large initialized with ImageNet weights and fine-tuned on PlantSeg.
 
-All models use the same cleaned split, preprocessing policy and evaluation protocol. Checkpoints
-are selected using validation macro F1.
+YOLO is trained first. Its predictions are then used to create classifier crops for both the
+training and validation splits. All classifiers use exactly the same crops, preprocessing policy
+and evaluation protocol. Checkpoints are selected using validation macro F1.
 
 ### Localization and Explanations
 
 - **Grad-CAM** explains classifier predictions. Its activation maps are compared quantitatively
   with PlantSeg lesion masks, in addition to representative qualitative examples.
-- **YOLO11n** is trained on bounding boxes derived from PlantSeg masks. This provides a consistent
-  lesion-region target without relying on the problematic supplied COCO boxes.
+- **YOLO11n** is trained as a one-class lesion detector on bounding boxes derived from PlantSeg
+  masks. Disease identity is deliberately left to the second-stage classifiers. This provides a
+  consistent lesion target without relying on the problematic supplied COCO boxes.
 
 PlantDoc detection boxes may be considered only as supplementary backup data after cleaning.
 
@@ -90,15 +94,16 @@ severity increases.
 ### Classification Experiments
 
 1. Preprocess PlantSeg using metadata and masks as authoritative sources.
-2. Train the baseline CNN, EfficientNetB0 and MobileNetV3-Large on the same split.
-3. Use class weighting or balanced sampling to address rare classes.
-4. Compare macro F1, balanced accuracy, per-class recall, calibration, model size and inference time.
-5. Evaluate a manually mapped PlantVillage subset as the secondary domain.
+2. Train class-agnostic YOLO and generate predicted train/validation lesion crops.
+3. Train the baseline CNN, EfficientNetB0 and MobileNetV3-Large on the same crops.
+4. Use class weighting or balanced sampling to address rare classes.
+5. Compare macro F1, balanced accuracy, per-class recall, calibration, model size and inference time.
+6. Evaluate the complete YOLO-to-classifier pipeline on a mapped PlantVillage subset.
 
 ### Localization Experiments
 
-1. Derive connected-component boxes from PlantSeg binary masks.
-2. Train YOLO11n on the derived boxes.
+1. Derive one enclosing lesion box from each PlantSeg binary mask.
+2. Train YOLO11n as a class-agnostic lesion detector on the derived boxes.
 3. Report mAP50, mAP50-95, precision, recall and per-class AP.
 4. Measure Grad-CAM overlap with masks using localization metrics and representative examples.
 
@@ -133,8 +138,7 @@ severity increases.
 
 ## Scope Decision
 
-The minimum project uses PlantSeg for classification, Grad-CAM evaluation, YOLO localization and
-robustness analysis. PlantVillage supplies a bounded controlled-domain comparison. PlantDoc is a
-backup dataset rather than a required experimental dependency. Pixel-level segmentation training
-remains an optional extension because the main localization tasks already use masks for supervision
-and explanation evaluation.
+The minimum project uses a YOLO-to-classifier cascade trained on PlantSeg, Grad-CAM evaluation on
+the resulting crops, and end-to-end robustness analysis. PlantVillage supplies a bounded
+controlled-domain comparison. PlantDoc is a backup dataset rather than a required dependency.
+Full-image classification and pixel-level segmentation training are outside the core experiment.

@@ -11,6 +11,7 @@ datasets:
 
 classification:
   dataset: plantseg
+  input: yolo_crops
   num_classes: 115
   models:
     - baseline_cnn
@@ -18,14 +19,23 @@ classification:
     - mobilenet_v3_large
   primary_metric: macro_f1
   batch_size: 32
-  epochs: 30
+  epochs: 10 # low initial number
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  num_workers: 4
 
 detection:
   dataset: plantseg
   annotations: derived_from_binary_masks
+  class_agnostic: true
   model: yolo11n.pt
+  run_name: plantseg_lesion
   image_size: 640
-  epochs: 50
+  epochs: 10 # low initial number
+  batch_size: 16
+  num_workers: 4
+  crop_confidence: 0.25
+  crop_margin: 0.10
 
 robustness:
   primary_test: plantseg

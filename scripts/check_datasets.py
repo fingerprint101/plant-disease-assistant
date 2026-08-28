@@ -160,6 +160,22 @@ def validate_yolo_label(path: Path, num_classes: int) -> int:
     return boxes
 
 
+def check_plantseg_detection() -> None:
+    root = TRAINING_DIR / "PlantSegDetection"
+    expected = {"train": 5_367, "val": 846}
+    for split, expected_count in expected.items():
+        images = image_files(root / "images" / split)
+        labels = sorted((root / "labels" / split).glob("*.txt"))
+        if len(images) != expected_count or len(labels) != expected_count:
+            raise RuntimeError(
+                f"PlantSeg detection {split} view is incomplete: "
+                f"{len(images)} images / {len(labels)} labels"
+            )
+        if sum(validate_yolo_label(path, 1) for path in labels) != expected_count:
+            raise RuntimeError(f"PlantSeg detection {split} must have one lesion box per image")
+    print("[ok] plantseg detection view: 5,367 train / 846 validation lesion boxes")
+
+
 def check_plantdoc(raw_dir: Path) -> dict[str, object]:
     root = raw_dir / "PlantDoc"
     records = json.loads((root / "annotations.json").read_text(encoding="utf-8"))
@@ -206,6 +222,7 @@ def check_plantdoc(raw_dir: Path) -> dict[str, object]:
 
 def main() -> None:
     check_plantseg_training()
+    check_plantseg_detection()
     check_test_datasets()
     results = {
         "plantseg (primary)": check_plantseg(RAW_DIR),

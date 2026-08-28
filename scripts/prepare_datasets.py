@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import csv
 import os
+import shutil
 from pathlib import Path
 
+import numpy as np
 import yaml
+from PIL import Image
 
 from plant_disease.paths import (
     DOWNLOADS_DIR,
@@ -53,6 +56,42 @@ def sync_image_links(destination: Path, sources: list[Path]) -> None:
         create_relative_link(destination / source.name, source)
 
 
+def jpeg_needs_repair(path: Path) -> bool:
+    if path.suffix.casefold() not in {".jpg", ".jpeg"}:
+        return False
+    with path.open("rb") as handle:
+        handle.seek(-2, os.SEEK_END)
+        return handle.read() != b"\xff\xd9"
+
+
+def sync_yolo_images(destination: Path, sources: list[Path]) -> int:
+    """Link normal images but copy JPEGs that Ultralytics would repair in place."""
+    destination.mkdir(parents=True, exist_ok=True)
+    expected = {source.name for source in sources}
+    if len(expected) != len(sources):
+        raise RuntimeError(f"Duplicate filenames cannot be flattened into {destination}")
+    for existing in destination.iterdir():
+        if existing.name not in expected:
+            if not existing.is_symlink() and not existing.is_file():
+                raise RuntimeError(f"Unexpected entry in generated YOLO view: {existing}")
+            existing.unlink()
+
+    copied = 0
+    for source in sources:
+        target = destination / source.name
+        if jpeg_needs_repair(source):
+            copied += 1
+            if target.is_symlink():
+                target.unlink()
+            if not target.exists():
+                shutil.copy2(source, target)
+            continue
+        if target.exists() and not target.is_symlink():
+            target.unlink()
+        create_relative_link(target, source)
+    return copied
+
+
 def read_plantseg_metadata(root: Path) -> tuple[list[dict[str, str]], list[str]]:
     metadata = root / "Metadata.csv"
     with metadata.open(encoding="utf-8-sig", newline="") as handle:
@@ -86,6 +125,90 @@ def prepare_plantseg_training() -> None:
     print(
         f"PlantSeg training view ready at {destination} "
         f"({len(training_rows):,} images; raw files are linked, not copied)"
+    )
+
+
+def mask_to_yolo_box(mask_path: Path) -> tuple[float, float, float, float]:
+    """Return one normalized box enclosing every lesion pixel in a mask."""
+    with Image.open(mask_path) as image:
+        mask = np.asarray(image)
+    rows, columns = np.where(mask > 0)
+    if not len(columns):
+        raise RuntimeError(f"PlantSeg mask contains no lesion pixels: {mask_path}")
+
+    height, width = mask.shape[:2]
+    left = int(columns.min())
+    top = int(rows.min())
+    right = int(columns.max()) + 1
+    bottom = int(rows.max()) + 1
+    return (
+        ((left + right) / 2) / width,
+        ((top + bottom) / 2) / height,
+        (right - left) / width,
+        (bottom - top) / height,
+    )
+
+
+def write_detection_labels(
+    destination: Path,
+    mask_dir: Path,
+    rows: list[dict[str, str]],
+) -> int:
+    destination.mkdir(parents=True, exist_ok=True)
+    cache_path = destination.with_suffix(".cache")
+    if cache_path.is_file():
+        cache_path.unlink()
+    expected = {Path(row["Name"]).with_suffix(".txt").name for row in rows}
+    for existing in destination.iterdir():
+        if existing.is_file() and existing.name not in expected:
+            existing.unlink()
+
+    for row in rows:
+        center_x, center_y, width, height = mask_to_yolo_box(mask_dir / row["Label file"])
+        label_path = destination / Path(row["Name"]).with_suffix(".txt").name
+        label_path.write_text(
+            f"0 {center_x:.8f} {center_y:.8f} {width:.8f} {height:.8f}\n",
+            encoding="utf-8",
+        )
+    return len(rows)
+
+
+def prepare_plantseg_detection() -> None:
+    """Build a class-agnostic YOLO dataset from PlantSeg lesion masks."""
+    source = RAW_DIR / "PlantSeg" / "plantseg"
+    rows, _ = read_plantseg_metadata(source)
+    split_details = {
+        "train": ("Training", source / "images" / "train", source / "annotations" / "train"),
+        "val": ("Validation", source / "images" / "val", source / "annotations" / "val"),
+    }
+    destination = TRAINING_DIR / "PlantSegDetection"
+    counts = {}
+    copied_images = 0
+    for split, (metadata_split, image_dir, mask_dir) in split_details.items():
+        split_rows = [row for row in rows if row["Split"] == metadata_split]
+        image_destination = destination / "images" / split
+        if image_destination.is_symlink():
+            image_destination.unlink()
+        copied_images += sync_yolo_images(
+            image_destination,
+            [image_dir / row["Name"] for row in split_rows],
+        )
+        counts[split] = write_detection_labels(destination / "labels" / split, mask_dir, split_rows)
+
+    dataset = {
+        "path": str(destination.resolve()),
+        "train": "images/train",
+        "val": "images/val",
+        "names": {0: "lesion"},
+    }
+    (destination / "dataset.yaml").write_text(
+        yaml.safe_dump(dataset, sort_keys=False),
+        encoding="utf-8",
+    )
+    print(
+        f"PlantSeg YOLO view ready at {destination} "
+        f"({counts['train']:,} train / {counts['val']:,} validation labels; one lesion class; "
+        f"{copied_images} repair-safe image copies)"
     )
 
 
@@ -186,6 +309,7 @@ def prepare_test_datasets() -> None:
 def main() -> None:
     ensure_project_directories()
     prepare_plantseg_training()
+    prepare_plantseg_detection()
     prepare_test_datasets()
 
 
