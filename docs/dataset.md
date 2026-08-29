@@ -136,6 +136,7 @@ every evaluation split. A reduced well-supported taxonomy is a reasonable course
 
 - Use the predefined PlantSeg split with `Metadata.csv` as the class authority.
 - Train class-agnostic YOLO first, then generate its predicted crops for classifier training.
+- Train a second disease-aware YOLO on the same boxes for the standalone comparison.
 - Compare a simple CNN with EfficientNetB0 and MobileNetV3-Large on identical YOLO crops.
 - Use macro F1, balanced accuracy, per-class recall, calibration error, and confusion matrices.
 - Fit preprocessing and class weights on training data only.
@@ -144,7 +145,9 @@ every evaluation split. A reduced well-supported taxonomy is a reasonable course
 ### YOLO
 
 - Derive one enclosing lesion box from each PlantSeg binary mask.
-- Train YOLO with a single `lesion` class; disease identity belongs to the classifier stage.
+- Train one YOLO with a single `lesion` class for the classifier pipeline.
+- Train a second YOLO with the image's PlantSeg disease ID attached to its mask-derived box, so it
+  can localize and classify in one pass.
 - Use `Metadata.csv` for classes rather than the empty supplied COCO category arrays.
 - Use YOLO nano or small for a course-scale experiment.
 - Report mAP50, mAP50-95, per-class AP, precision, recall, and representative failures.

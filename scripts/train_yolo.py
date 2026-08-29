@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train the class-agnostic PlantSeg lesion detector."""
+"""Train either PlantSeg YOLO detector used by the comparison experiment."""
 
 from __future__ import annotations
 
@@ -19,6 +19,12 @@ IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
 def parse_args(config: dict) -> argparse.Namespace:
     detection = config["detection"]
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=("lesion", "disease"),
+        default="lesion",
+        help="Train the crop-producing lesion detector or standalone disease detector.",
+    )
     parser.add_argument("--epochs", type=int, default=detection["epochs"])
     parser.add_argument("--batch-size", type=int, default=detection["batch_size"])
     parser.add_argument("--image-size", type=int, default=detection["image_size"])
@@ -33,18 +39,25 @@ def parse_args(config: dict) -> argparse.Namespace:
     parser.add_argument(
         "--data",
         type=Path,
-        default=TRAINING_DIR / "PlantSegDetection" / "dataset.yaml",
+        help="Override the prepared dataset selected by --mode.",
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--force", action="store_true", help="Replace an existing trained run.")
     parser.add_argument("--output-dir", type=Path, default=OUTPUTS_DIR / "yolo")
-    parser.add_argument("--run-name", default=detection["run_name"])
+    parser.add_argument("--run-name", help="Override the configured run name selected by --mode.")
     parser.add_argument(
         "--max-images-per-split",
         type=int,
         help="Limit both train and validation data for a primary-settings preflight.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.data is None:
+        dataset_name = "PlantSegDetection" if args.mode == "lesion" else "PlantSegDiseaseDetection"
+        args.data = TRAINING_DIR / dataset_name / "dataset.yaml"
+    if args.run_name is None:
+        key = "run_name" if args.mode == "lesion" else "standalone_run_name"
+        args.run_name = detection[key]
+    return args
 
 
 def yolo_device(requested: str) -> str:
@@ -162,7 +175,10 @@ def main() -> None:
         raise FileNotFoundError(
             f"YOLO base checkpoint not found: {pretrained}; run make init first"
         )
-    print("Training a one-class lesion detector; disease labels are reserved for the classifiers")
+    if args.mode == "lesion":
+        print("Training the one-class lesion detector used to generate classifier crops")
+    else:
+        print("Training the 115-class standalone YOLO disease detector")
     model = YOLO(pretrained)
     model.train(
         data=str(training_data.resolve()),

@@ -153,6 +153,8 @@ def write_detection_labels(
     destination: Path,
     mask_dir: Path,
     rows: list[dict[str, str]],
+    *,
+    class_aware: bool = False,
 ) -> int:
     destination.mkdir(parents=True, exist_ok=True)
     cache_path = destination.with_suffix(".cache")
@@ -165,23 +167,39 @@ def write_detection_labels(
 
     for row in rows:
         center_x, center_y, width, height = mask_to_yolo_box(mask_dir / row["Label file"])
+        class_id = int(row["Index"]) if class_aware else 0
         label_path = destination / Path(row["Name"]).with_suffix(".txt").name
         label_path.write_text(
-            f"0 {center_x:.8f} {center_y:.8f} {width:.8f} {height:.8f}\n",
+            f"{class_id} {center_x:.8f} {center_y:.8f} {width:.8f} {height:.8f}\n",
             encoding="utf-8",
         )
     return len(rows)
 
 
-def prepare_plantseg_detection() -> None:
-    """Build a class-agnostic YOLO dataset from PlantSeg lesion masks."""
-    source = RAW_DIR / "PlantSeg" / "plantseg"
-    rows, _ = read_plantseg_metadata(source)
-    split_details = {
-        "train": ("Training", source / "images" / "train", source / "annotations" / "train"),
-        "val": ("Validation", source / "images" / "val", source / "annotations" / "val"),
-    }
-    destination = TRAINING_DIR / "PlantSegDetection"
+def plantseg_class_names(rows: list[dict[str, str]]) -> dict[int, str]:
+    """Return PlantSeg's stable disease taxonomy indexed by metadata class ID."""
+    names: dict[int, str] = {}
+    for row in rows:
+        class_id = int(row["Index"])
+        class_name = f'{row["Plant"]} / {row["Disease"]}'
+        if class_id in names and names[class_id] != class_name:
+            raise RuntimeError(f"Conflicting PlantSeg names for class ID {class_id}")
+        names[class_id] = class_name
+    expected = set(range(len(names)))
+    if set(names) != expected:
+        raise RuntimeError("PlantSeg class IDs must be contiguous from zero")
+    return names
+
+
+def prepare_detection_view(
+    destination: Path,
+    rows: list[dict[str, str]],
+    split_details: dict[str, tuple[str, Path, Path]],
+    names: dict[int, str],
+    *,
+    class_aware: bool,
+) -> tuple[dict[str, int], int]:
+    """Build one YOLO view, sharing source images wherever possible."""
     counts = {}
     copied_images = 0
     for split, (metadata_split, image_dir, mask_dir) in split_details.items():
@@ -193,22 +211,61 @@ def prepare_plantseg_detection() -> None:
             image_destination,
             [image_dir / row["Name"] for row in split_rows],
         )
-        counts[split] = write_detection_labels(destination / "labels" / split, mask_dir, split_rows)
+        counts[split] = write_detection_labels(
+            destination / "labels" / split,
+            mask_dir,
+            split_rows,
+            class_aware=class_aware,
+        )
 
     dataset = {
         "path": str(destination.resolve()),
         "train": "images/train",
         "val": "images/val",
-        "names": {0: "lesion"},
+        "names": names,
     }
     (destination / "dataset.yaml").write_text(
         yaml.safe_dump(dataset, sort_keys=False),
         encoding="utf-8",
     )
+    return counts, copied_images
+
+
+def prepare_plantseg_detection() -> None:
+    """Build class-agnostic and disease-aware YOLO views from PlantSeg masks."""
+    source = RAW_DIR / "PlantSeg" / "plantseg"
+    rows, _ = read_plantseg_metadata(source)
+    split_details = {
+        "train": ("Training", source / "images" / "train", source / "annotations" / "train"),
+        "val": ("Validation", source / "images" / "val", source / "annotations" / "val"),
+    }
+    lesion_destination = TRAINING_DIR / "PlantSegDetection"
+    lesion_counts, lesion_copies = prepare_detection_view(
+        lesion_destination,
+        rows,
+        split_details,
+        {0: "lesion"},
+        class_aware=False,
+    )
     print(
-        f"PlantSeg YOLO view ready at {destination} "
-        f"({counts['train']:,} train / {counts['val']:,} validation labels; one lesion class; "
-        f"{copied_images} repair-safe image copies)"
+        f"PlantSeg lesion YOLO view ready at {lesion_destination} "
+        f"({lesion_counts['train']:,} train / {lesion_counts['val']:,} validation labels; "
+        f"one lesion class; {lesion_copies} repair-safe image copies)"
+    )
+
+    disease_destination = TRAINING_DIR / "PlantSegDiseaseDetection"
+    disease_names = plantseg_class_names(rows)
+    disease_counts, disease_copies = prepare_detection_view(
+        disease_destination,
+        rows,
+        split_details,
+        disease_names,
+        class_aware=True,
+    )
+    print(
+        f"PlantSeg standalone YOLO view ready at {disease_destination} "
+        f"({disease_counts['train']:,} train / {disease_counts['val']:,} validation labels; "
+        f"{len(disease_names)} disease classes; {disease_copies} repair-safe image copies)"
     )
 
 
@@ -229,6 +286,57 @@ def prepare_test_datasets() -> None:
     create_relative_link(full / "masks", plantseg / "annotations" / "test")
     create_relative_link(full / "annotations.json", plantseg / "annotation_test.json")
     write_csv(full / "Metadata.csv", test_rows, plantseg_fields)
+
+    detection = TESTS_DIR / "PlantSeg" / "detection"
+    detection_images = detection / "images" / "test"
+    if detection_images.is_symlink():
+        detection_images.unlink()
+    copied_images = sync_yolo_images(
+        detection_images,
+        [plantseg / "images" / "test" / row["Name"] for row in test_rows],
+    )
+    detection_labels = write_detection_labels(
+        detection / "labels" / "test",
+        plantseg / "annotations" / "test",
+        test_rows,
+    )
+    detection_config = {
+        "path": str(detection.resolve()),
+        "train": "images/test",
+        "val": "images/test",
+        "test": "images/test",
+        "names": {0: "lesion"},
+    }
+    (detection / "dataset.yaml").write_text(
+        yaml.safe_dump(detection_config, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    disease_detection = TESTS_DIR / "PlantSeg" / "disease_detection"
+    disease_images = disease_detection / "images" / "test"
+    if disease_images.is_symlink():
+        disease_images.unlink()
+    disease_copies = sync_yolo_images(
+        disease_images,
+        [plantseg / "images" / "test" / row["Name"] for row in test_rows],
+    )
+    disease_labels = write_detection_labels(
+        disease_detection / "labels" / "test",
+        plantseg / "annotations" / "test",
+        test_rows,
+        class_aware=True,
+    )
+    disease_config = {
+        "path": str(disease_detection.resolve()),
+        "train": "images/test",
+        "val": "images/test",
+        "test": "images/test",
+        "names": plantseg_class_names(plantseg_rows),
+    }
+    (disease_detection / "dataset.yaml").write_text(
+        yaml.safe_dump(disease_config, sort_keys=False),
+        encoding="utf-8",
+    )
 
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     mapping = config["plantseg_to_plantvillage"]
@@ -302,7 +410,9 @@ def prepare_test_datasets() -> None:
         "Test views ready at "
         f"{TESTS_DIR} (PlantSeg full: {len(test_rows):,}; overlap: "
         f"{len(plantseg_overlap_rows):,} PlantSeg / {len(pv_rows):,} PlantVillage; "
-        f"robustness variants: {len(variant_rows)})"
+        f"lesion/disease detection labels: {detection_labels:,}/{disease_labels:,}; "
+        f"robustness variants: {len(variant_rows)}; repair-safe test copies: "
+        f"{copied_images + disease_copies})"
     )
 
 

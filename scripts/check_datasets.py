@@ -108,21 +108,32 @@ def validate_yolo_label(path: Path, num_classes: int) -> int:
     return boxes
 
 
-def check_plantseg_detection(raw_rows: list[dict[str, str]]) -> None:
-    root = TRAINING_DIR / "PlantSegDetection"
-    for metadata_split, split in (("Training", "train"), ("Validation", "val")):
-        expected_names = {
-            Path(row["Name"]).stem for row in raw_rows if row["Split"] == metadata_split
-        }
-        images = image_files(root / "images" / split)
-        labels = sorted((root / "labels" / split).glob("*.txt"))
-        if {path.stem for path in images} != expected_names:
-            raise RuntimeError(f"PlantSeg detection {split} images do not match metadata")
-        if {path.stem for path in labels} != expected_names:
-            raise RuntimeError(f"PlantSeg detection {split} labels do not match metadata")
-        if sum(validate_yolo_label(path, 1) for path in labels) != len(expected_names):
-            raise RuntimeError(f"PlantSeg detection {split} must have one lesion box per image")
-    print("[ok] plantseg detection view matches train/validation metadata")
+def check_plantseg_detection(raw_rows: list[dict[str, str]], class_count: int) -> None:
+    views = (
+        (TRAINING_DIR / "PlantSegDetection", 1, False, "lesion"),
+        (TRAINING_DIR / "PlantSegDiseaseDetection", class_count, True, "disease"),
+    )
+    for root, num_classes, class_aware, description in views:
+        for metadata_split, split in (("Training", "train"), ("Validation", "val")):
+            split_rows = [row for row in raw_rows if row["Split"] == metadata_split]
+            expected_by_stem = {Path(row["Name"]).stem: row for row in split_rows}
+            images = image_files(root / "images" / split)
+            labels = sorted((root / "labels" / split).glob("*.txt"))
+            if {path.stem for path in images} != set(expected_by_stem):
+                raise RuntimeError(f"PlantSeg {description} {split} images do not match metadata")
+            if {path.stem for path in labels} != set(expected_by_stem):
+                raise RuntimeError(f"PlantSeg {description} {split} labels do not match metadata")
+            if sum(validate_yolo_label(path, num_classes) for path in labels) != len(split_rows):
+                raise RuntimeError(
+                    f"PlantSeg {description} {split} must have one box per image"
+                )
+            if class_aware:
+                for path in labels:
+                    actual = int(path.read_text(encoding="utf-8").split()[0])
+                    expected = int(expected_by_stem[path.stem]["Index"])
+                    if actual != expected:
+                        raise RuntimeError(f"Disease class mismatch in {path}")
+        print(f"[ok] plantseg {description} detection view matches train/validation metadata")
 
 
 def check_test_datasets(raw_rows: list[dict[str, str]], config: dict) -> None:
@@ -135,6 +146,36 @@ def check_test_datasets(raw_rows: list[dict[str, str]], config: dict) -> None:
         raise RuntimeError("Full PlantSeg test image view is incomplete")
     if len(image_files(full / "masks")) != len(full_rows):
         raise RuntimeError("Full PlantSeg test mask view is incomplete")
+
+    detection = TESTS_DIR / "PlantSeg" / "detection"
+    detection_images = image_files(detection / "images" / "test")
+    detection_labels = sorted((detection / "labels" / "test").glob("*.txt"))
+    expected_stems = {Path(row["Name"]).stem for row in expected_test}
+    if {path.stem for path in detection_images} != expected_stems:
+        raise RuntimeError("PlantSeg detection test images do not match test metadata")
+    if {path.stem for path in detection_labels} != expected_stems:
+        raise RuntimeError("PlantSeg detection test labels do not match test metadata")
+    if sum(validate_yolo_label(path, 1) for path in detection_labels) != len(expected_test):
+        raise RuntimeError("PlantSeg detection test must have one lesion box per image")
+    if not (detection / "dataset.yaml").is_file():
+        raise RuntimeError("PlantSeg detection test is missing dataset.yaml")
+
+    disease_detection = TESTS_DIR / "PlantSeg" / "disease_detection"
+    disease_images = image_files(disease_detection / "images" / "test")
+    disease_labels = sorted((disease_detection / "labels" / "test").glob("*.txt"))
+    if {path.stem for path in disease_images} != expected_stems:
+        raise RuntimeError("PlantSeg disease detection test images do not match test metadata")
+    if {path.stem for path in disease_labels} != expected_stems:
+        raise RuntimeError("PlantSeg disease detection test labels do not match test metadata")
+    test_by_stem = {Path(row["Name"]).stem: row for row in expected_test}
+    for path in disease_labels:
+        if validate_yolo_label(path, config["classification"]["num_classes"]) != 1:
+            raise RuntimeError(f"PlantSeg disease detection test needs one box: {path}")
+        actual = int(path.read_text(encoding="utf-8").split()[0])
+        if actual != int(test_by_stem[path.stem]["Index"]):
+            raise RuntimeError(f"Disease class mismatch in {path}")
+    if not (disease_detection / "dataset.yaml").is_file():
+        raise RuntimeError("PlantSeg disease detection test is missing dataset.yaml")
 
     mapping = config["plantseg_to_plantvillage"]
     mapped_names = set(mapping)
@@ -217,7 +258,7 @@ def main() -> None:
     )
     raw_rows, class_count = check_plantseg()
     check_plantseg_training(raw_rows, class_count)
-    check_plantseg_detection(raw_rows)
+    check_plantseg_detection(raw_rows, class_count)
     check_test_datasets(raw_rows, config)
     check_plantvillage()
     check_plantdoc()

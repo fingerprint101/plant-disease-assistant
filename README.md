@@ -13,18 +13,19 @@ PlantSeg is the primary dataset because it combines field photographs, 115 plant
 and lesion masks. PlantVillage is the secondary controlled dataset, while PlantDoc is retained as
 a backup external dataset. The project uses them as follows:
 
-1. Derive class-agnostic YOLO boxes from PlantSeg lesion masks and train the detector.
-2. Generate YOLO lesion crops and train classification models on those crops.
-3. Compare classifier Grad-CAM activation maps quantitatively with PlantSeg masks.
-4. Use PlantVillage as a controlled secondary benchmark on a mapped taxonomy subset.
-5. Use cleaned PlantDoc only as backup external validation or supplementary detection data.
+1. Derive boxes from PlantSeg lesion masks and train both class-agnostic and disease-aware YOLO detectors.
+2. Generate class-agnostic YOLO lesion crops and train classification models on those crops.
+3. Compare standalone disease-aware YOLO with the YOLO-to-classifier pipeline.
+4. Compare classifier Grad-CAM activation maps quantitatively with PlantSeg masks.
+5. Use PlantVillage as a controlled secondary benchmark on a mapped taxonomy subset.
+6. Use cleaned PlantDoc only as backup external validation or supplementary detection data.
 
 The central experiment is how well classifiers and localization methods perform on PlantSeg field
 images, and how their behavior changes on the more controlled PlantVillage domain.
 
 ## Planned Models
 
-- YOLO11n trained first as a class-agnostic lesion detector.
+- YOLO11n trained both as a class-agnostic crop detector and a standalone 115-class disease detector.
 - Small CNN trained from scratch on YOLO lesion crops.
 - EfficientNetB0 and MobileNetV3-Large initialized with ImageNet weights and trained on the same crops.
 - Grad-CAM for classifier activation visualization; Grad-CAM is not trained separately.
@@ -94,7 +95,9 @@ PlantSeg is extracted under `data/raw/PlantSeg/plantseg` and is the primary sour
 classification, mask-supervised localization, and explanation evaluation. `make prepare-data`
 creates an idempotent training-only view under `data/training/PlantSeg` containing the official
 5,367-image training split, its masks, filtered metadata, and COCO annotations. It also creates
-`data/training/PlantSegDetection`, with one generic lesion box per mask for YOLO train/validation.
+`data/training/PlantSegDetection`, with one generic lesion box per mask, and
+`data/training/PlantSegDiseaseDetection`, where the same boxes carry PlantSeg disease IDs for the
+standalone YOLO comparison.
 Images, masks, and annotations are linked to the raw extraction rather than duplicated. It prepares the test
 views under `data/tests`: the complete PlantSeg test split, the mapped PlantSeg/PlantVillage
 21-class subsets, and the 30 configured PlantSeg robustness conditions. Robustness corruptions are
@@ -125,13 +128,14 @@ Useful options:
 1. Download, prepare and verify all datasets and model dependencies with `make init`.
 2. Inspect the bundled sample notebook.
 3. Preprocess PlantSeg using `Metadata.csv` and binary lesion masks as authoritative sources.
-4. Train class-agnostic YOLO on boxes derived from PlantSeg masks.
-5. Generate predicted YOLO crops and train all classifiers on those crops.
-6. Compare crop-level Grad-CAM attention with PlantSeg masks.
-7. Map a supported PlantVillage subset for controlled secondary evaluation.
-8. Compare clean, corrupted and cross-domain performance.
-9. Clean PlantDoc only if backup external validation is needed.
-10. Add the upload prototype after the evaluation pipeline is stable.
+4. Train both YOLO variants on boxes derived from PlantSeg masks.
+5. Generate predicted class-agnostic YOLO crops and train all classifiers on those crops.
+6. Compare standalone disease-aware YOLO with the crop-classification pipeline.
+7. Compare crop-level Grad-CAM attention with PlantSeg masks.
+8. Map a supported PlantVillage subset for controlled secondary evaluation.
+9. Compare clean, corrupted and cross-domain performance.
+10. Clean PlantDoc only if backup external validation is needed.
+11. Add the upload prototype after the evaluation pipeline is stable.
 
 ## Model Smoke Test
 
@@ -160,12 +164,13 @@ Train the complete localization-to-classification pipeline in the required order
 make train-pipeline
 ```
 
-This trains the one-class YOLO lesion detector, creates predicted lesion crops for the official
-PlantSeg training and validation splits, and then trains the baseline CNN, EfficientNetB0, and
-MobileNetV3-Large sequentially on exactly those crops. Individual stages are also available as
-`make train-yolo`, `make prepare-crops`, and `make train-classifiers`.
-An existing trained YOLO checkpoint is reused; use `scripts/train_yolo.py --resume` to continue an
-interrupted run or `scripts/train_yolo.py --force` to deliberately replace it.
+This trains the one-class YOLO lesion detector and the standalone 115-class YOLO detector, creates
+predicted lesion crops for the official PlantSeg training and validation splits, and then trains
+the baseline CNN, EfficientNetB0, and MobileNetV3-Large sequentially on exactly those crops.
+`make train-yolo` handles both detectors. Individual stages are available as
+`make train-yolo-lesion`, `make train-yolo-standalone`, `make prepare-crops`, and
+`make train-classifiers`. Existing completed checkpoints are reused; pass `--mode lesion` or
+`--mode disease` to `scripts/train_yolo.py` when resuming or replacing one specific run.
 
 Each model writes `last.pt`, the best macro-F1 checkpoint as `best.pt`, and `history.json` under
 `outputs/classification/<model>/`. Resume an interrupted run or override training settings with:
@@ -179,6 +184,31 @@ Run `scripts/train_classifiers.py --help` for batch-size, device, worker, output
 smoke-test batch-limit options. Classifier training uses only
 `data/training/PlantSegCrops`; model selection uses crops from PlantSeg's official validation
 split. No dataset under `data/tests` is read during training.
+
+## Primary Evaluation
+
+Compare standalone disease-aware YOLO with the complete localization-to-classification pipeline on
+PlantSeg's untouched official test split:
+
+```bash
+make evaluate
+```
+
+The command evaluates both detectors against test boxes derived from the authoritative lesion
+masks. For standalone YOLO, the highest-confidence detected box supplies the image's disease
+prediction; an image with no detection is counted as incorrect. It then streams every test image
+through the class-agnostic detector and evaluates all three classifiers on the resulting crops.
+Results are written under `outputs/evaluation/plantseg_test/`, including `summary.json`, per-image
+predictions, per-class metrics, confusion matrices, and separate YOLO plots. Pipeline images
+without a confident lesion detection use the full image and are reported through the fallback rate.
+
+A small integration run can be launched without consuming the complete test evaluation:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/evaluate_pipeline.py \
+  --max-images 8 --device mps \
+  --output-dir /tmp/plantseg-evaluation-smoke
+```
 
 ## Evaluation
 

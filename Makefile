@@ -2,7 +2,7 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 PYTHON := .venv/bin/python
 RUNTIME_ENV := XDG_CACHE_HOME=$(CURDIR)/.cache MPLCONFIGDIR=$(CURDIR)/.cache/matplotlib YOLO_CONFIG_DIR=$(CURDIR)/.cache
 
-.PHONY: init setup kernel check-datasets check-models train-yolo prepare-crops train-classifiers train-pipeline notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
+.PHONY: init setup kernel check-datasets check-models train-yolo train-yolo-lesion train-yolo-standalone prepare-crops train-classifiers train-pipeline evaluate notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
 
 init:
 	@if [ ! -x "$(PYTHON)" ]; then $(MAKE) setup; else echo "Python environment already exists; skipping setup"; fi
@@ -26,7 +26,14 @@ check-models:
 	$(RUNTIME_ENV) TORCH_HOME=$(CURDIR)/models PYTHONPATH=src $(PYTHON) scripts/check_models.py
 
 train-yolo:
-	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/train_yolo.py
+	$(MAKE) train-yolo-lesion
+	$(MAKE) train-yolo-standalone
+
+train-yolo-lesion:
+	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/train_yolo.py --mode lesion
+
+train-yolo-standalone:
+	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/train_yolo.py --mode disease
 
 prepare-crops:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) scripts/prepare_classifier_crops.py
@@ -38,6 +45,9 @@ train-pipeline:
 	$(MAKE) train-yolo
 	$(MAKE) prepare-crops
 	$(MAKE) train-classifiers
+
+evaluate:
+	$(RUNTIME_ENV) TORCH_HOME=$(CURDIR)/models PYTHONPATH=src $(PYTHON) scripts/evaluate_pipeline.py
 
 notebook:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) -m jupyter lab
