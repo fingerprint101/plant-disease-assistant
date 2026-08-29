@@ -83,8 +83,10 @@ def prepare_split(
     fallback_count = 0
     expected = set(rows_by_name)
 
+    # A path list is treated as one in-memory batch by Ultralytics. A directory
+    # source honors batch_size and keeps full-dataset crop generation bounded.
     results = model.predict(
-        source=[str(image_dir / name) for name in rows_by_name],
+        source=str(image_dir),
         conf=confidence,
         imgsz=image_size,
         batch=batch_size,
@@ -92,7 +94,10 @@ def prepare_split(
         stream=True,
         verbose=False,
     )
-    for name, result in zip(rows_by_name, results, strict=True):
+    for result in results:
+        name = Path(result.path).name
+        if name not in rows_by_name:
+            continue
         height, width = result.orig_shape
         boxes = (
             result.boxes.xyxy.detach().cpu().numpy()
@@ -121,6 +126,8 @@ def prepare_split(
             }
         )
         prepared_rows.append(row)
+        if len(prepared_rows) == len(expected):
+            break
 
     prepared_names = {row["Name"] for row in prepared_rows}
     missing = expected - prepared_names
@@ -157,7 +164,10 @@ def main() -> None:
     total_fallbacks = 0
     device = yolo_device(args.device)
     for metadata_split, split in SPLITS.items():
-        selected_rows = [row for row in rows if row["Split"] == metadata_split]
+        selected_rows = sorted(
+            (row for row in rows if row["Split"] == metadata_split),
+            key=lambda row: row["Name"],
+        )
         if args.max_images_per_split is not None:
             if args.max_images_per_split < 1:
                 raise ValueError("max-images-per-split must be positive")

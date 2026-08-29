@@ -29,7 +29,7 @@ detection:
   annotations: derived_from_binary_masks
   class_agnostic: true
   model: yolo11n.pt
-  run_name: plantseg_lesion
+  run_name: plantseg_lesion_10ep
   image_size: 640
   epochs: 10 # low initial number
   batch_size: 16

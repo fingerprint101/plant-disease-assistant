@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 from pathlib import Path
 
 import torch
@@ -84,6 +85,14 @@ def limited_dataset(source: Path, output_dir: Path, limit: int) -> Path:
     return subset_yaml
 
 
+def completed_epochs(run_dir: Path) -> int:
+    results_path = run_dir / "results.csv"
+    if not results_path.is_file():
+        return 0
+    with results_path.open(encoding="utf-8", newline="") as handle:
+        return sum(1 for _ in csv.DictReader(handle))
+
+
 def main() -> None:
     config = yaml.safe_load((PROJECT_ROOT / "configs" / "project.yaml").read_text(encoding="utf-8"))
     args = parse_args(config)
@@ -114,6 +123,7 @@ def main() -> None:
         )
     last_checkpoint = project / run_name / "weights" / "last.pt"
     best_checkpoint = project / run_name / "weights" / "best.pt"
+    run_dir = project / run_name
     if args.resume:
         if not last_checkpoint.is_file():
             raise FileNotFoundError(f"Cannot resume; checkpoint not found: {last_checkpoint}")
@@ -122,8 +132,29 @@ def main() -> None:
         model.train(resume=True)
         return
     if best_checkpoint.is_file() and not args.force:
-        print(f"Trained YOLO checkpoint already exists; reusing {best_checkpoint}")
-        print("Pass --force to restart training or --resume to continue the existing run")
+        saved_args_path = run_dir / "args.yaml"
+        saved_args = (
+            yaml.safe_load(saved_args_path.read_text(encoding="utf-8"))
+            if saved_args_path.is_file()
+            else {}
+        )
+        saved_target = int(saved_args.get("epochs", args.epochs))
+        finished = completed_epochs(run_dir)
+        if saved_target != args.epochs:
+            raise RuntimeError(
+                f"Existing YOLO run targets {saved_target} epochs, but this command requests "
+                f"{args.epochs}. Use --resume, --force, or a different --run-name."
+            )
+        if finished >= saved_target:
+            print(f"Completed YOLO checkpoint already exists; reusing {best_checkpoint}")
+            return
+        if not last_checkpoint.is_file():
+            raise FileNotFoundError(
+                f"YOLO run stopped after {finished}/{saved_target} epochs, but its resume "
+                f"checkpoint is missing: {last_checkpoint}"
+            )
+        print(f"YOLO run is incomplete ({finished}/{saved_target} epochs); resuming")
+        YOLO(last_checkpoint).train(resume=True)
         return
 
     pretrained = MODELS_DIR / detection["model"]
