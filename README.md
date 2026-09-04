@@ -210,6 +210,30 @@ PYTHONPATH=src .venv/bin/python scripts/evaluate_pipeline.py \
   --output-dir /tmp/plantseg-evaluation-smoke
 ```
 
+## Grad-CAM vs PlantSeg Masks
+
+Compare classifier attention with the authoritative lesion masks on the official PlantSeg test
+split:
+
+```bash
+make gradcam
+```
+
+For each test image, the class-agnostic lesion YOLO detector supplies the same crop used by the
+classification pipeline (falling back to the full image when it finds nothing). Grad-CAM is
+computed on that crop for the model's predicted class and pasted back into full-image coordinates
+so it can be compared pixel-for-pixel with the ground-truth mask. Results are written under
+`outputs/gradcam/plantseg_test/`: `summary.json` with mean/median IoU, precision, recall, mask
+energy fraction and pointing-game hit rate; `predictions.csv` with per-image metrics; and a
+`figures/` folder with side-by-side image/mask/Grad-CAM qualitative examples.
+
+By default `make gradcam` explains `mobilenet_v3_large` (best validation macro-F1 in the
+preliminary run). Explain a different model or limit the run with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_gradcam.py --model efficientnet_b0 --max-images 20
+```
+
 ## Evaluation
 
 Classification metrics:
