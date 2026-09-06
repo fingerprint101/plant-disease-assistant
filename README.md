@@ -261,6 +261,16 @@ PYTHONPATH=src .venv/bin/python scripts/run_robustness.py \
   --models mobilenet_v3_large --corruptions gaussian_blur occlusion --subset-size 50
 ```
 
+Both the 200-image subset and the complete 1,561-image test split have been run against the final
+classifiers. Clean-condition accuracy on the full split (baseline CNN 40.0%, EfficientNetB0 67.3%,
+MobileNetV3-Large 66.5%) closely matches `evaluate_pipeline.py`'s independently measured clean
+accuracy. Gaussian blur at maximum severity is the worst case for every model, roughly halving
+accuracy or worse (EfficientNetB0 67.3% → 29.7%, MobileNetV3-Large 66.5% → 30.5%). Crop and
+occlusion are comparatively well tolerated by all three models, consistent with the training-time
+random-resized-crop and horizontal-flip augmentation already applied. Full per-corruption,
+per-severity results are in
+[`docs/preliminary_model_test.md`](docs/preliminary_model_test.md#robustness-under-synthetic-corruption).
+
 ## Evaluation
 
 Classification metrics:
