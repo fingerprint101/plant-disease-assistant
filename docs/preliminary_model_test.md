@@ -259,6 +259,38 @@ mask; see [`dataset.md`](dataset.md#plantseg-quality-findings-primary) for the f
 remaining scope of the underlying data issue. No images needed to be skipped in the final run once
 the fix (`ImageOps.exif_transpose` on both image and mask) was applied.
 
+### Robustness Under Synthetic Corruption
+
+`scripts/run_robustness.py` applies each corruption configured in `configs/project.yaml`
+(`gaussian_blur`, `brightness`, `contrast`, `jpeg_compression`, `occlusion`, `crop`) at severities
+1-5 to the lesion-YOLO-to-classifier pipeline, using the final checkpoints. It was run twice: once
+on a fixed, reproducible 200-image subset (5m53s), and once on the complete official 1,561-image
+test split (44m6s) to confirm the subset result generalizes. Clean-condition accuracy on the full
+split (baseline CNN 40.0%, EfficientNetB0 67.3%, MobileNetV3-Large 66.5%) closely matches
+`evaluate_pipeline.py`'s independently measured clean accuracy (41.3%, 66.7%, 66.8%), the small
+difference attributable to non-deterministic YOLO crop selection between runs.
+
+Accuracy at the most severe level (severity 5) of each corruption, full test split:
+
+| Corruption | Baseline CNN | EfficientNetB0 | MobileNetV3-Large |
+|---|---:|---:|---:|
+| Clean (no corruption) | 40.0% | 67.3% | 66.5% |
+| Gaussian blur | **12.5%** (−27.5pp) | **29.7%** (−37.7pp) | **30.5%** (−36.0pp) |
+| Brightness | 17.8% (−22.2pp) | 49.6% (−17.7pp) | 46.8% (−19.7pp) |
+| JPEG compression | 25.8% (−14.2pp) | 48.5% (−18.8pp) | 45.7% (−20.8pp) |
+| Contrast | 26.1% (−13.8pp) | 62.0% (−5.3pp) | 61.8% (−4.7pp) |
+| Occlusion | 34.5% (−5.4pp) | 63.2% (−4.2pp) | 61.3% (−5.2pp) |
+| Crop | 35.5% (−4.5pp) | 63.6% (−3.7pp) | 63.8% (−2.7pp) |
+
+Gaussian blur at maximum severity is the worst case for every model, roughly halving accuracy or
+worse; both pretrained classifiers lose more absolute accuracy to it than the from-scratch baseline
+CNN despite starting from a much higher clean accuracy. Brightness and JPEG compression cause
+moderate degradation. Crop and occlusion are comparatively well tolerated by all three models,
+consistent with the training-time random-resized-crop and horizontal-flip augmentation already
+applied during classifier training (`src/plant_disease/data.py`), which exposes the models to
+similar framing variation. Per-corruption, per-severity results, mean confidence, and macro F1 are
+in the saved artifacts below; `accuracy_vs_severity.png` plots every corruption and model together.
+
 ### Updated Saved Artifacts
 
 - Complete evaluation summary: [`summary.json`](../outputs/evaluation/plantseg_test/summary.json)
@@ -275,3 +307,10 @@ the fix (`ImageOps.exif_transpose` on both image and mask) was applied.
 - Grad-CAM evaluation summary: [`gradcam summary.json`](../outputs/gradcam/plantseg_test/summary.json)
 - Grad-CAM per-image metrics: [`gradcam predictions.csv`](../outputs/gradcam/plantseg_test/predictions.csv)
 - Grad-CAM qualitative figures: [`figures/`](../outputs/gradcam/plantseg_test/figures/)
+- Robustness summary (200-image subset): [`summary.json`](../outputs/robustness/plantseg_test/summary.json),
+  [`results.csv`](../outputs/robustness/plantseg_test/results.csv),
+  [`accuracy_vs_severity.png`](../outputs/robustness/plantseg_test/accuracy_vs_severity.png)
+- Robustness summary (complete 1,561-image test split):
+  [`summary.json`](../outputs/robustness/plantseg_test_full/summary.json),
+  [`results.csv`](../outputs/robustness/plantseg_test_full/results.csv),
+  [`accuracy_vs_severity.png`](../outputs/robustness/plantseg_test_full/accuracy_vs_severity.png)
