@@ -234,6 +234,33 @@ preliminary run). Explain a different model or limit the run with:
 PYTHONPATH=src .venv/bin/python scripts/run_gradcam.py --model efficientnet_b0 --max-images 20
 ```
 
+## Robustness Testing
+
+Measure how much classification accuracy degrades under synthetic image corruptions:
+
+```bash
+make robustness
+```
+
+Applies each corruption configured in `configs/project.yaml` (`gaussian_blur`, `brightness`,
+`contrast`, `jpeg_compression`, `occlusion`, `crop`) at every configured severity level (1-5) to a
+fixed, reproducible 200-image subset of the official PlantSeg test split, then runs the same
+lesion-YOLO-to-classifier pipeline used by `evaluate_pipeline.py` on each corrupted variant, for
+all three classifiers. Corruptions are generated on demand from the clean subset rather than stored,
+matching the plan recorded in `data/tests/robustness/PlantSeg/variants.csv`. Results are written
+under `outputs/robustness/plantseg_test/`: `summary.json` and `results.csv` with per-model,
+per-corruption, per-severity accuracy, macro F1, mean confidence, and their absolute/relative drop
+from the clean baseline; `subset.csv` recording the exact images used; and
+`accuracy_vs_severity.png` plotting accuracy against severity for each corruption and model.
+
+The subset is sampled once with the project's configured seed, so repeated runs use the same
+images. Limit the run or change scope with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_robustness.py \
+  --models mobilenet_v3_large --corruptions gaussian_blur occlusion --subset-size 50
+```
+
 ## Evaluation
 
 Classification metrics:
