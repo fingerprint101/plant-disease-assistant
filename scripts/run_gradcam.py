@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
-from PIL import Image
+from PIL import Image, ImageOps
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from tqdm import tqdm
 from ultralytics import YOLO
@@ -235,6 +235,7 @@ def main() -> None:
     per_image_rows: list[dict[str, object]] = []
     aggregate: dict[str, list[float]] = {}
     saved_figures = 0
+    skipped: list[str] = []
 
     progress = tqdm(rows, desc=f"Grad-CAM ({args.model})", unit="image")
     for row in progress:
@@ -242,9 +243,16 @@ def main() -> None:
         image_path = test_root / "images" / image_name
         mask_path = test_root / "masks" / row["Label file"]
         with Image.open(image_path) as handle:
-            image = np.asarray(handle.convert("RGB"))
+            image = np.asarray(ImageOps.exif_transpose(handle).convert("RGB"))
         with Image.open(mask_path) as handle:
-            mask = (np.asarray(handle) > 0).astype(np.uint8)
+            mask = (np.asarray(ImageOps.exif_transpose(handle)) > 0).astype(np.uint8)
+        if mask.shape[:2] != image.shape[:2]:
+            skipped.append(image_name)
+            progress.write(
+                f"Skipping {image_name}: mask shape {mask.shape[:2]} does not match "
+                f"image shape {image.shape[:2]}"
+            )
+            continue
         height, width = image.shape[:2]
 
         results = detector.predict(
@@ -322,6 +330,7 @@ def main() -> None:
         "classifier_validation_macro_f1": float(checkpoint_info["best_macro_f1"]),
         "yolo_checkpoint": str(args.yolo_checkpoint.resolve()),
         "images": len(per_image_rows),
+        "skipped_mask_shape_mismatch": skipped,
         "cam_threshold_fixed": CAM_THRESHOLD,
         "cam_top_quantile": CAM_TOP_QUANTILE,
         "metrics_mean": {key: float(np.mean(values)) for key, values in aggregate.items()},

@@ -130,6 +130,13 @@ is missing class ID 41, while several classes contain very few images overall. F
 results therefore require macro metrics and an explicit note that not every class is represented in
 every evaluation split. A reduced well-supported taxonomy is a reasonable course-project option.
 
+`scripts/run_gradcam.py` is the only script that currently applies EXIF orientation on load (via
+`ImageOps.exif_transpose`) for both images and masks, after one of the eight EXIF cases produced a
+transposed width/height mismatch between an image and its mask during Grad-CAM evaluation. No other
+script in the pipeline (dataset preparation, YOLO training, classifier training) applies this
+correction yet, so mask-derived boxes and crops for the affected images may still be misaligned
+elsewhere until the same fix is applied more broadly.
+
 ## Preparation and Experimental Use
 
 ### Classification
