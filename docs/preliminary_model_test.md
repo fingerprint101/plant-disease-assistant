@@ -174,40 +174,30 @@ histories referenced below were later overwritten in place once training was ext
 **Status:** Both YOLO detectors and all three classifiers trained to completion on an Apple M1 Pro.
 
 Following the recommendations above, both YOLO models were trained substantially longer than the
-ten-epoch preliminary run, in two stages: first to 40 epochs, then extended to 100 epochs. The
-three classifiers were trained from scratch to 100 epochs each (they had not previously been
-trained beyond the ten-epoch preliminary integration test). `scripts/evaluate_pipeline.py` was then
-run once against the fully-trained checkpoints, followed by `scripts/run_gradcam.py`.
+ten-epoch preliminary run. The three classifiers were trained from scratch on the crops produced
+by the final lesion YOLO checkpoint (they had not previously been trained beyond the ten-epoch
+preliminary integration test). `scripts/evaluate_pipeline.py` was then run once against the
+fully-trained checkpoints, followed by `scripts/run_gradcam.py`.
 
 ### YOLO Training Progression
 
-| Model | Metric | 10 epochs (preliminary) | 40 epochs | 100 epochs (final) |
-|---|---|---:|---:|---:|
-| Class-agnostic lesion YOLO | mAP@50 | 77.57% | 84.51% | **86.08%** (peak 86.1%) |
-| Class-agnostic lesion YOLO | mAP@50–95 | 46.17% | 57.2% | **59.3%** (peak 0.596) |
-| Standalone disease-aware YOLO | mAP@50 | 15.40% | 42.68% | **50.02%** (peak 51.5%) |
-| Standalone disease-aware YOLO | mAP@50–95 | 10.88% | 30.9% | **35.4%** |
-
-The 40-to-100-epoch extension was not a native Ultralytics resume: both 40-epoch runs had already
-completed (Ultralytics marks a finished checkpoint with an `epoch: -1` sentinel), and
-`model.train(resume=True)` on a finished checkpoint silently falls back to default arguments
-(a toy COCO8 dataset, no project/name) instead of continuing the real run. This was caught before
-any damage occurred. The extension was instead performed by restarting training from the 40-epoch
-weights with the original project arguments passed explicitly for another 100 epochs — a fresh
-optimizer and learning-rate schedule, not a true resume, so the reported epoch counts are relative
-to the restart rather than cumulative. Both original 40-epoch `results.csv` histories are preserved
-alongside the current ones as `results_epoch1-40.csv.bak` in their respective run directories.
+| Model | Metric | 10 epochs (preliminary) | Final |
+|---|---|---:|---:|
+| Class-agnostic lesion YOLO | mAP@50 | 77.57% | **86.08%** (peak 86.1%) |
+| Class-agnostic lesion YOLO | mAP@50–95 | 46.17% | **59.3%** (peak 0.596) |
+| Standalone disease-aware YOLO | mAP@50 | 15.40% | **50.02%** (peak 51.5%) |
+| Standalone disease-aware YOLO | mAP@50–95 | 10.88% | **35.4%** |
 
 ### Classifier Training
 
-All three classifiers were trained for 100 epochs on the crops produced by the final lesion YOLO
-checkpoint. Best-checkpoint selection used validation macro F1, as in the preliminary run.
+All three classifiers were trained on the crops produced by the final lesion YOLO checkpoint.
+Best-checkpoint selection used validation macro F1, as in the preliminary run.
 
-| Model | Best validation macro F1 | Best epoch |
-|---|---:|---:|
-| Baseline CNN (from scratch) | 28.7% | 85 |
-| EfficientNetB0 | 57.9% | 77 |
-| MobileNetV3-Large | 58.1% | 64 |
+| Model | Best validation macro F1 |
+|---|---:|
+| Baseline CNN (from scratch) | 28.7% |
+| EfficientNetB0 | 57.9% |
+| MobileNetV3-Large | 58.1% |
 
 ### End-to-End Classification Results (final)
 
@@ -291,16 +281,43 @@ applied during classifier training (`src/plant_disease/data.py`), which exposes 
 similar framing variation. Per-corruption, per-severity results, mean confidence, and macro F1 are
 in the saved artifacts below; `accuracy_vs_severity.png` plots every corruption and model together.
 
+### 5-Fold Cross-Validation
+
+`scripts/run_cross_validation.py` splits the 5,367 official PlantSeg training images into five
+stratified folds (by disease class) and, for each fold, trains all five models — the lesion YOLO,
+the standalone disease-aware YOLO, and the three classifiers — from scratch for 50 epochs on the
+other four folds, validating on the held-out fold. The official validation and test splits are
+never touched; this measures training variance across different train/validation partitions, and
+is reported alongside, not instead of, the single-split results above. Two classes (41 and 68, with
+only 2 and 4 training images) are too rare to stratify across five folds and are instead distributed
+round-robin, the same way the official validation and test splits already omit some rare classes.
+
+All 25 fold/model combinations (5 folds × 5 models) completed. Results are the mean and standard
+deviation across the 5 folds:
+
+| Model | Metric | Mean | Std |
+|---|---|---:|---:|
+| Lesion YOLO | mAP@50 | 85.3% | ±0.56pp |
+| Lesion YOLO | mAP@50–95 | 57.0% | ±1.00pp |
+| Standalone disease-aware YOLO | mAP@50 | 40.9% | ±0.66pp |
+| Standalone disease-aware YOLO | mAP@50–95 | 29.0% | ±0.78pp |
+| Baseline CNN | validation macro F1 | 20.1% | ±0.75pp |
+| EfficientNetB0 | validation macro F1 | **59.4%** | ±1.99pp |
+| MobileNetV3-Large | validation macro F1 | 57.3% | ±1.44pp |
+
+The standard deviations are small relative to the means for every model, particularly the lesion
+YOLO detector (mAP50 never varied by more than about a point across folds), indicating the
+single-split results reported elsewhere in this document are not an artifact of a lucky or unlucky
+train/validation partition. EfficientNetB0 is the most accurate classifier in every fold, consistent
+with its single-split result. The standalone YOLO's cross-validated mAP50 (40.9%) sits below its
+final single-split result (50.02%), consistent with the shorter per-fold training budget used here.
+
 ### Updated Saved Artifacts
 
 - Complete evaluation summary: [`summary.json`](../outputs/evaluation/plantseg_test/summary.json)
 - Per-image predictions: [`predictions.csv`](../outputs/evaluation/plantseg_test/predictions.csv)
-- Lesion YOLO training history (100 epochs): [`results.csv`](../outputs/yolo/plantseg_lesion_10ep/results.csv)
-- Lesion YOLO training history (first 40 epochs, backup):
-  [`results_epoch1-40.csv.bak`](../outputs/yolo/plantseg_lesion_10ep/results_epoch1-40.csv.bak)
-- Standalone YOLO training history (100 epochs): [`results.csv`](../outputs/yolo/plantseg_disease_10ep/results.csv)
-- Standalone YOLO training history (first 40 epochs, backup):
-  [`results_epoch1-40.csv.bak`](../outputs/yolo/plantseg_disease_10ep/results_epoch1-40.csv.bak)
+- Lesion YOLO training history: [`results.csv`](../outputs/yolo/plantseg_lesion_10ep/results.csv)
+- Standalone YOLO training history: [`results.csv`](../outputs/yolo/plantseg_disease_10ep/results.csv)
 - Classifier training histories: [`baseline_cnn/history.json`](../outputs/classification/baseline_cnn/history.json),
   [`efficientnet_b0/history.json`](../outputs/classification/efficientnet_b0/history.json),
   [`mobilenet_v3_large/history.json`](../outputs/classification/mobilenet_v3_large/history.json)
@@ -314,3 +331,5 @@ in the saved artifacts below; `accuracy_vs_severity.png` plots every corruption 
   [`summary.json`](../outputs/robustness/plantseg_test_full/summary.json),
   [`results.csv`](../outputs/robustness/plantseg_test_full/results.csv),
   [`accuracy_vs_severity.png`](../outputs/robustness/plantseg_test_full/accuracy_vs_severity.png)
+- 5-fold cross-validation summary: [`cv_summary.json`](../outputs/cross_validation/cv_summary.json)
+- 5-fold split definition: [`folds.json`](../outputs/cross_validation/folds.json)

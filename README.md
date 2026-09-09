@@ -271,6 +271,25 @@ random-resized-crop and horizontal-flip augmentation already applied. Full per-c
 per-severity results are in
 [`docs/preliminary_model_test.md`](docs/preliminary_model_test.md#robustness-under-synthetic-corruption).
 
+## 5-Fold Cross-Validation
+
+Measure training variance across five different train/validation partitions of the official
+PlantSeg training pool:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_cross_validation.py --device mps
+```
+
+For each of 5 stratified folds, trains the lesion YOLO, standalone disease-aware YOLO, and all
+three classifiers from scratch for 50 epochs, validating on the held-out fold. The official
+validation and test splits are never touched. Resumable per fold/model pair. All 25 combinations
+have been run; results (mean ± std across folds) are lesion YOLO 85.3% ± 0.6pp mAP50, standalone
+YOLO 40.9% ± 0.7pp mAP50, baseline CNN 20.1% ± 0.8pp macro F1, EfficientNetB0 59.4% ± 2.0pp macro F1,
+MobileNetV3-Large 57.3% ± 1.4pp macro F1. The small standard deviations confirm the single-split
+results elsewhere in this project are not an artifact of one lucky or unlucky partition. Full
+details are in
+[`docs/preliminary_model_test.md`](docs/preliminary_model_test.md#5-fold-cross-validation).
+
 ## Evaluation
 
 Classification metrics:
