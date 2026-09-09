@@ -234,6 +234,33 @@ preliminary run). Explain a different model or limit the run with:
 PYTHONPATH=src .venv/bin/python scripts/run_gradcam.py --model efficientnet_b0 --max-images 20
 ```
 
+## Cross-Domain Evaluation
+
+Evaluate the complete lesion-YOLO-to-classifier pipeline on the 21 disease classes shared by
+PlantSeg and PlantVillage:
+
+```bash
+make evaluate-cross-domain
+```
+
+The evaluator runs the same checkpoints, detector confidence, crop margin and classifier
+preprocessing on both the mapped PlantSeg test subset and PlantVillage's official test subset.
+Results are written under `outputs/evaluation/cross_domain/`: `summary.json` reports accuracy,
+macro F1, balanced accuracy, mean confidence, calibration error and the PlantVillage-minus-PlantSeg
+change; `predictions.csv` contains per-image decisions; `per_class.json` and the confusion matrices
+provide class-level detail; and `domain_comparison.png` visualizes the main metrics. Run a small
+integration check with:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/evaluate_cross_domain.py \
+  --max-images 8 --device mps --output-dir /tmp/plantseg-cross-domain-smoke
+```
+
+The consolidated experiment notebook, `notebooks/01_experiments_and_results.ipynb`, reads these
+artifacts together with the training, holdout, Grad-CAM, robustness and cross-validation outputs.
+Missing optional or not-yet-run experiments are labelled clearly instead of causing the notebook
+to fail.
+
 ## Robustness Testing
 
 Measure how much classification accuracy degrades under synthetic image corruptions:
