@@ -3,6 +3,15 @@
 This document is the central technical overview of the project. Dataset measurements, integrity
 findings and preparation rules are documented separately in [`dataset.md`](dataset.md).
 
+For the final report, use [`paper_backbone.md`](paper_backbone.md). It maps the repository to the
+course-required IEEE paper structure, documents the complete KDD process and five-fold protocol,
+and provides ready-to-fill result and discussion tables.
+
+The corresponding ready-to-compile IEEE manuscript is
+[`plant_disease_assistant_paper.tex`](plant_disease_assistant_paper.tex). Its remaining red
+`[FINAL RESULT]` markers are limited to values and interpretations that depend on the unfinished
+final experiment runs.
+
 ## Project Overview
 
 The project studies plant disease recognition and localization in field photographs. PlantSeg is
@@ -44,6 +53,9 @@ because some boxes disagree with masks or extend outside image bounds.
 PlantVillage contains 54,305 controlled color images across 38 classes. Its centered leaves and
 simple backgrounds make it useful for secondary controlled experiments, but not as the main
 evidence for field performance. Comparisons with PlantSeg must use an explicit taxonomy mapping.
+The configured mapping retains 21 disease-level classes. Their prepared official-test views
+contain 378 PlantSeg images and 6,057 PlantVillage images; PlantVillage is never used to fit the
+models.
 
 ### Backup: PlantDoc
 
@@ -93,6 +105,27 @@ severity increases.
 
 ## Experimental Plan
 
+### Validation Strategy and Five-Fold Cross-Validation
+
+The primary experiment preserves PlantSeg's official partitions: training data update parameters,
+validation macro F1 selects classifier checkpoints, and the 1,561-image test split remains an
+untouched final holdout. Cross-validation provides a separate stability estimate and does not
+replace this protocol.
+
+`scripts/run_cross_validation.py` performs five-fold stratified cross-validation over only the
+5,367-image official training pool. For every fold it trains new class-agnostic and disease-aware
+YOLO11n models on four folds, generates crops using that fold's class-agnostic detector, and then
+trains new baseline CNN, EfficientNetB0 and MobileNetV3-Large classifiers. This reconstruction is
+important: validation crops are not produced by a detector that was trained on their images. The
+official validation and test splits are never read by the cross-validation script.
+
+The default cross-validation run uses 50 epochs per fold/model and seed 42. It reports detector
+precision, recall, mAP50 and mAP50-95, and classifier best validation macro F1 as mean and standard
+deviation over completed folds. Class IDs 41 and 68 have only two and four training examples,
+respectively, so they are assigned round-robin and cannot appear in all five folds. The current
+split is class-stratified, not source-grouped; possible near-duplicate/source dependence remains a
+threat to validity.
+
 ### Classification Experiments
 
 1. Preprocess PlantSeg using metadata and masks as authoritative sources.
@@ -117,8 +150,14 @@ crops, using only the official PlantSeg test split. It reports detection metrics
 models and image-level accuracy, macro F1, coverage and runtime for the standalone model. Run it
 once the training choices are fixed with `make evaluate`.
 
-Results and analysis from the first complete ten-epoch run are recorded in
-[`preliminary_model_test.md`](preliminary_model_test.md).
+Evaluation results are pending for the supplied checkpoint archive. Use the commands in
+`notebooks/01_experiments_and_results.ipynb` to generate matching artifacts before reporting scores.
+
+The final paper should be assembled from [`paper_backbone.md`](paper_backbone.md). Its results
+section contains tables for the official holdout, five-fold variability, matched cross-domain
+performance, corruption robustness, Grad-CAM overlap and deployment efficiency. Values must be
+copied from the saved JSON/CSV artifacts after checking that every artifact references the final
+checkpoint.
 
 ### Robustness Experiments
 

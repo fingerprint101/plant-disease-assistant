@@ -227,8 +227,7 @@ so it can be compared pixel-for-pixel with the ground-truth mask. Results are wr
 energy fraction and pointing-game hit rate; `predictions.csv` with per-image metrics; and a
 `figures/` folder with side-by-side image/mask/Grad-CAM qualitative examples.
 
-By default `make gradcam` explains `mobilenet_v3_large` (best validation macro-F1 in the
-preliminary run). Explain a different model or limit the run with:
+By default `make gradcam` explains `mobilenet_v3_large`. Explain a different model or limit the run with:
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_gradcam.py --model efficientnet_b0 --max-images 20
@@ -245,6 +244,10 @@ make evaluate-cross-domain
 
 The evaluator runs the same checkpoints, detector confidence, crop margin and classifier
 preprocessing on both the mapped PlantSeg test subset and PlantVillage's official test subset.
+The comparison also runs disease-aware YOLO11n, selecting the highest-confidence box per image.
+Missed detections count as errors (confidence zero); predictions outside the shared labels remain
+errors. Coverage and calibration are computed over all images. Use `--standalone-yolo-checkpoint`
+to select its weights, alongside `--yolo-checkpoint` and `--classifier-dir` for the cascades.
 Results are written under `outputs/evaluation/cross_domain/`: `summary.json` reports accuracy,
 macro F1, balanced accuracy, mean confidence, calibration error and the PlantVillage-minus-PlantSeg
 change; `predictions.csv` contains per-image decisions; `per_class.json` and the confusion matrices
@@ -260,6 +263,22 @@ The consolidated experiment notebook, `notebooks/01_experiments_and_results.ipyn
 artifacts together with the training, holdout, Grad-CAM, robustness and cross-validation outputs.
 Missing optional or not-yet-run experiments are labelled clearly instead of causing the notebook
 to fail.
+
+## Deployment Efficiency
+
+Benchmark standalone disease-aware YOLO and each lesion-YOLO-to-classifier cascade independently:
+
+```bash
+make benchmark-efficiency
+```
+
+The benchmark uses batch size 1 and a fixed 200-image PlantSeg sample after 10 warm-up images.
+It reports median and 95th-percentile end-to-end latency, throughput, parameter count, and
+checkpoint size. Timing includes image loading, YOLO inference, cropping, preprocessing, and one
+classifier where applicable; model loading is excluded. Hardware and device are recorded in the
+summary because a desktop MPS or CPU result is evidence about relative cost on that machine, not a
+measurement of phone latency. The experiment notebook combines these measurements with full
+holdout accuracy in an accuracy-versus-latency plot.
 
 ## Robustness Testing
 
@@ -288,15 +307,9 @@ PYTHONPATH=src .venv/bin/python scripts/run_robustness.py \
   --models mobilenet_v3_large --corruptions gaussian_blur occlusion --subset-size 50
 ```
 
-Both the 200-image subset and the complete 1,561-image test split have been run against the final
-classifiers. Clean-condition accuracy on the full split (baseline CNN 40.0%, EfficientNetB0 67.3%,
-MobileNetV3-Large 66.5%) closely matches `evaluate_pipeline.py`'s independently measured clean
-accuracy. Gaussian blur at maximum severity is the worst case for every model, roughly halving
-accuracy or worse (EfficientNetB0 67.3% → 29.7%, MobileNetV3-Large 66.5% → 30.5%). Crop and
-occlusion are comparatively well tolerated by all three models, consistent with the training-time
-random-resized-crop and horizontal-flip augmentation already applied. Full per-corruption,
-per-severity results are in
-[`docs/preliminary_model_test.md`](docs/preliminary_model_test.md#robustness-under-synthetic-corruption).
+Robustness scores and curves must be generated for the selected checkpoints. The experiments
+notebook provides commands that select the weights from `plant-disease-checkpoints.zip` and
+write to its dedicated evaluation directory. No benchmark scores are currently reported here.
 
 ## 5-Fold Cross-Validation
 
@@ -309,13 +322,9 @@ PYTHONPATH=src .venv/bin/python scripts/run_cross_validation.py --device mps
 
 For each of 5 stratified folds, trains the lesion YOLO, standalone disease-aware YOLO, and all
 three classifiers from scratch for 50 epochs, validating on the held-out fold. The official
-validation and test splits are never touched. Resumable per fold/model pair. All 25 combinations
-have been run; results (mean ± std across folds) are lesion YOLO 85.3% ± 0.6pp mAP50, standalone
-YOLO 40.9% ± 0.7pp mAP50, baseline CNN 20.1% ± 0.8pp macro F1, EfficientNetB0 59.4% ± 2.0pp macro F1,
-MobileNetV3-Large 57.3% ± 1.4pp macro F1. The small standard deviations confirm the single-split
-results elsewhere in this project are not an artifact of one lucky or unlucky partition. Full
-details are in
-[`docs/preliminary_model_test.md`](docs/preliminary_model_test.md#5-fold-cross-validation).
+validation and test splits are never touched. Resumable per fold/model pair. Report fold means
+and standard deviations only after importing the matching per-fold metrics or `cv_summary.json`.
+The checkpoint ZIP does not include those metrics.
 
 ## Evaluation
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate the PlantSeg pipeline on matched PlantSeg and PlantVillage classes."""
+"""Evaluate the PlantSeg pipelines and standalone YOLO on matched classes."""
 
 from __future__ import annotations
 
@@ -46,6 +46,12 @@ def parse_args(config: dict) -> argparse.Namespace:
         "--yolo-checkpoint",
         type=Path,
         default=OUTPUTS_DIR / "yolo" / detection["run_name"] / "weights" / "best.pt",
+    )
+    parser.add_argument(
+        "--standalone-yolo-checkpoint",
+        type=Path,
+        default=OUTPUTS_DIR / "yolo" / detection["standalone_run_name"] / "weights" / "best.pt",
+        help="Disease-aware YOLO checkpoint for the single-stage comparison.",
     )
     parser.add_argument("--classifier-dir", type=Path, default=OUTPUTS_DIR / "classification")
     parser.add_argument(
@@ -136,10 +142,63 @@ def classify_pending(
                 record[f"{name}_confidence"] = f"{score:.8f}"
 
 
+def predict_standalone(
+    detector: YOLO,
+    records: list[dict[str, object]],
+    image_dir: Path,
+    args: argparse.Namespace,
+    config: dict,
+    device: torch.device,
+) -> dict[str, list]:
+    """Score every selected image; retain out-of-overlap labels and missed detections."""
+    rows_by_name = {str(record["image"]): record for record in records}
+    expected = set(rows_by_name)
+    raw = {"targets": [], "predictions": [], "confidences": []}
+    seen = set()
+    results = detector.predict(
+        source=str(image_dir),
+        conf=args.confidence,
+        imgsz=config["detection"]["image_size"],
+        batch=args.yolo_batch_size,
+        device=yolo_device(device),
+        stream=True,
+        verbose=False,
+    )
+    for result in tqdm(results, total=len(records), desc="Standalone YOLO", unit="image"):
+        name = Path(result.path).name
+        if name not in rows_by_name:
+            continue
+        if name in seen:
+            raise RuntimeError(f"Duplicate standalone YOLO result: {name}")
+        seen.add(name)
+        record = rows_by_name[name]
+        count = len(result.boxes)
+        if count:
+            best = int(result.boxes.conf.argmax().item())
+            prediction = int(result.boxes.cls[best].item())
+            confidence = float(result.boxes.conf[best].item())
+        else:
+            prediction, confidence = -1, 0.0
+        record["standalone_yolo_prediction_id"] = prediction
+        record["standalone_yolo_confidence"] = f"{confidence:.8f}"
+        record["standalone_yolo_detection_count"] = count
+        raw["targets"].append(int(record["actual_id"]))
+        raw["predictions"].append(prediction)
+        raw["confidences"].append(confidence)
+        if seen == expected:
+            break
+    if seen != expected:
+        raise RuntimeError(
+            f"Standalone YOLO did not return {len(rows_by_name.keys() - seen)} images"
+        )
+    return raw
+
+
 def evaluate_domain(
     domain: str,
     root: Path,
     detector: YOLO,
+    standalone_detector: YOLO,
     models: dict[str, torch.nn.Module],
     class_names: list[str],
     shared_ids: list[int],
@@ -225,6 +284,9 @@ def evaluate_domain(
     if missing:
         raise RuntimeError(f"YOLO did not return {len(missing)} images for {domain}")
 
+    raw["standalone_yolo"] = predict_standalone(
+        standalone_detector, records, image_dir, args, config, device
+    )
     metrics: dict[str, dict[str, float | int]] = {}
     per_class_by_model: dict[str, list[dict[str, object]]] = {}
     for name, values in raw.items():
@@ -248,6 +310,8 @@ def evaluate_domain(
             )
         ]
         metrics[name] = {
+            "coverage": float(np.mean(np.asarray(predictions) >= 0)),
+            "no_detections": int(np.sum(np.asarray(predictions) < 0)),
             "accuracy": float(accuracy_score(targets, predictions)),
             "macro_f1": float(
                 f1_score(targets, predictions, labels=shared_ids, average="macro", zero_division=0)
@@ -283,15 +347,16 @@ def save_confusion_matrices(
     num_classes: int,
 ) -> None:
     targets = [int(record["actual_id"]) for record in records]
-    labels = list(range(num_classes))
     for name in model_names:
+        labels = list(range(num_classes)) + ([-1] if name == "standalone_yolo" else [])
         predictions = [int(record[f"{name}_prediction_id"]) for record in records]
         matrix = confusion_matrix(targets, predictions, labels=labels)
         path = output_dir / f"{domain}_{name}_confusion_matrix.csv"
         with path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["actual_id/predicted_id", *labels])
-            writer.writerows([class_id, *row] for class_id, row in zip(labels, matrix, strict=True))
+            displayed = ["no_detection" if label == -1 else label for label in labels]
+            writer.writerow(["actual_id/predicted_id", *displayed])
+            writer.writerows([label, *row] for label, row in zip(displayed, matrix, strict=True))
 
 
 def save_plot(summary: dict[str, object], output_path: Path, model_names: list[str]) -> None:
@@ -326,6 +391,10 @@ def main() -> None:
         raise FileNotFoundError(
             f"Lesion YOLO checkpoint not found: {args.yolo_checkpoint}; run make train-yolo-lesion"
         )
+    if not args.standalone_yolo_checkpoint.is_file():
+        raise FileNotFoundError(
+            f"Disease-aware YOLO checkpoint not found: {args.standalone_yolo_checkpoint}"
+        )
     if args.batch_size < 1 or args.yolo_batch_size < 1:
         raise ValueError("Batch sizes must be positive")
     if not 0 <= args.confidence <= 1 or args.margin < 0:
@@ -350,6 +419,11 @@ def main() -> None:
     if lesion_names != ["lesion"]:
         raise RuntimeError(f"Crop detector must contain only 'lesion', found {lesion_names}")
 
+    standalone_detector = YOLO(args.standalone_yolo_checkpoint)
+    if [standalone_detector.names[i] for i in range(len(standalone_detector.names))] != class_names:
+        raise RuntimeError("Standalone YOLO checkpoint taxonomy differs from PlantSeg")
+    system_names = [*models, "standalone_yolo"]
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     roots = {
         "plantseg_overlap": TESTS_DIR / "overlap" / "PlantSeg",
@@ -363,6 +437,7 @@ def main() -> None:
             domain,
             root,
             detector,
+            standalone_detector,
             models,
             class_names,
             shared_ids,
@@ -373,15 +448,16 @@ def main() -> None:
         domain_summaries[domain] = domain_summary
         all_records.extend(records)
         all_per_class[domain] = per_class
-        save_confusion_matrices(args.output_dir, domain, records, list(models), len(class_names))
+        save_confusion_matrices(args.output_dir, domain, records, system_names, len(class_names))
 
     shifts = {}
-    for name in models:
+    for name in system_names:
         shifts[name] = {}
         for metric in (
             "accuracy",
             "macro_f1",
             "balanced_accuracy",
+            "coverage",
             "mean_confidence",
             "expected_calibration_error",
         ):
@@ -395,6 +471,10 @@ def main() -> None:
         "shared_class_ids": shared_ids,
         "yolo_checkpoint": str(args.yolo_checkpoint.resolve()),
         "classifier_checkpoints": checkpoints,
+        "standalone_yolo_checkpoint": str(args.standalone_yolo_checkpoint.resolve()),
+        "systems": system_names,
+        "standalone_policy": "Highest-confidence box; no detection is -1 with confidence 0. "
+        "Predictions outside the shared taxonomy remain errors. ECE includes all images.",
         "detection_confidence_threshold": args.confidence,
         "crop_margin": args.margin,
         "calibration_bins": args.calibration_bins,
@@ -408,17 +488,19 @@ def main() -> None:
         json.dumps(all_per_class, indent=2) + "\n", encoding="utf-8"
     )
     for record in all_records:
-        for name in models:
+        for name in system_names:
             predicted_id = int(record[f"{name}_prediction_id"])
-            record[f"{name}_prediction_class"] = class_names[predicted_id]
+            record[f"{name}_prediction_class"] = (
+                class_names[predicted_id] if predicted_id >= 0 else "<no_detection>"
+            )
     with (args.output_dir / "predictions.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(all_records[0]))
         writer.writeheader()
         writer.writerows(all_records)
-    save_plot(summary, args.output_dir / "domain_comparison.png", list(models))
+    save_plot(summary, args.output_dir / "domain_comparison.png", system_names)
 
     print(f"Cross-domain outputs saved to {args.output_dir.resolve()}")
-    for name in models:
+    for name in system_names:
         source = domain_summaries["plantseg_overlap"]["classification"][name]
         target = domain_summaries["plantvillage"]["classification"][name]
         print(
