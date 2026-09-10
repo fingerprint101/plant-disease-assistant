@@ -1,0 +1,45 @@
+{
+  "lesion_yolo": {
+    "precision_mean": 0.8223053922928031,
+    "recall_mean": 0.8021032118010885,
+    "map50_mean": 0.8533756436293212,
+    "map50_95_mean": 0.5695724316171055,
+    "precision_std": 0.007016166703015853,
+    "recall_std": 0.007039164294129921,
+    "map50_std": 0.00560014721149037,
+    "map50_95_std": 0.009961506790798914,
+    "folds_completed": 5
+  },
+  "standalone_yolo": {
+    "precision_mean": 0.49056884078177176,
+    "recall_mean": 0.4003456969514877,
+    "map50_mean": 0.408990582537262,
+    "map50_95_mean": 0.28998587722893754,
+    "precision_std": 0.016156813685404746,
+    "recall_std": 0.027411817387969946,
+    "map50_std": 0.006628851319299291,
+    "map50_95_std": 0.007762938109210674,
+    "folds_completed": 5
+  },
+  "baseline_cnn": {
+    "best_val_macro_f1_mean": 0.20089297790991578,
+    "epochs_mean": 50.0,
+    "best_val_macro_f1_std": 0.00750123291738059,
+    "epochs_std": 0.0,
+    "folds_completed": 5
+  },
+  "efficientnet_b0": {
+    "best_val_macro_f1_mean": 0.593871248294222,
+    "epochs_mean": 50.0,
+    "best_val_macro_f1_std": 0.01993703990360185,
+    "epochs_std": 0.0,
+    "folds_completed": 5
+  },
+  "mobilenet_v3_large": {
+    "best_val_macro_f1_mean": 0.5726559496236463,
+    "epochs_mean": 50.0,
+    "best_val_macro_f1_std": 0.014361290493683,
+    "epochs_std": 0.0,
+    "folds_completed": 5
+  }
+}

@@ -1,0 +1,723 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{url}
+
+\definecolor{pendingred}{RGB}{170,20,20}
+\newcommand{\resultpending}{\textcolor{pendingred}{\textbf{[FINAL RESULT]}}}
+\newcommand{\ppoints}{percentage points}
+
+\title{A Two-Stage Plant Disease Recognition Assistant:\
+Localization, Classification, Robustness, and Cross-Domain Evaluation}
+
+\author{
+\IEEEauthorblockN{Plant Disease Assistant Project Team}
+\IEEEauthorblockA{
+M.Sc. in Computer Engineering\\
+University of Pisa, Pisa, Italy
+}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Plant disease recognition in field photographs is difficult because symptoms can occupy only a
+small image region and acquisition conditions differ substantially from controlled datasets. This
+work presents an intelligent assistant that first localizes symptomatic regions and then classifies
+the corresponding plant--disease condition. The system combines a class-agnostic YOLO11n lesion
+detector with one of three classifiers: a convolutional neural network trained from scratch,
+EfficientNetB0, or MobileNetV3-Large. A disease-aware YOLO11n provides a single-stage comparison.
+PlantSeg is the primary field-image dataset, while PlantVillage supplies a taxonomy-matched
+controlled-domain benchmark; PlantDoc is retained as optional backup data. Model stability is
+assessed by five-fold stratified cross-validation over the PlantSeg training pool, and final systems
+are evaluated on the untouched official test split. The study additionally measures synthetic
+corruption robustness and Grad-CAM overlap with lesion masks. The best two-stage system reaches
+59.02\% macro F1 on the official holdout. Five-fold cross-validation confirms this ranking with a
+mean macro F1 of 59.39\% ($\pm$1.99 \ppoints), showing the result is stable across different
+train/validation partitions rather than an artifact of one split. Severe Gaussian blur is the
+strongest tested corruption, while Grad-CAM obtains 24.2\% mean top-quantile IoU with the annotated
+lesions. The final cross-domain values will complete the transfer analysis. These
+experiments evaluate accuracy together with localization, stability,
+explanation alignment, and domain sensitivity rather than relying on a single aggregate score.
+\end{abstract}
+
+\begin{IEEEkeywords}
+plant disease recognition, object detection, image classification, YOLO, transfer learning,
+cross-validation, domain shift, explainable artificial intelligence, robustness
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Plant diseases threaten crop quality and yield, and timely diagnosis often depends on specialist
+knowledge that may not always be immediately available. Image-based recognition can support an
+initial screening step using ordinary cameras. However, field photographs contain clutter,
+variable lighting, scale changes, occlusion, and multiple plant regions. A model evaluated only on
+centered leaves and uniform backgrounds may therefore appear reliable without transferring to
+natural scenes. This gap has also been observed in prior plant-disease research: models attaining
+very high accuracy on PlantVillage suffered a substantial decrease on images acquired under
+different conditions~\cite{mohanty2016plantvillage}.
+
+This project investigates whether explicit symptom localization supports more robust field-image
+classification. The proposed assistant separates \emph{where the disease evidence is} from
+\emph{which disease it represents}. A class-agnostic detector first identifies a suspected lesion;
+a classifier then assigns one of 115 PlantSeg plant--disease labels to the resulting crop. The
+assistant also reports confidence and a Grad-CAM explanation. It is intended as decision support,
+not as a substitute for laboratory testing, a plant pathologist, or treatment advice.
+
+The study addresses five research questions:
+
+\begin{itemize}
+    \item \textbf{RQ1:} How does the two-stage localization--classification pipeline compare with
+    a single disease-aware YOLO detector on PlantSeg field images?
+    \item \textbf{RQ2:} Which classifier provides the best and most stable macro-level performance
+    across the official protocol and five cross-validation folds?
+    \item \textbf{RQ3:} How does performance change when the PlantSeg-trained pipeline is applied
+    to a taxonomy-matched PlantVillage subset?
+    \item \textbf{RQ4:} Which common image corruptions cause the greatest degradation, and do the
+    classifier architectures degrade differently?
+    \item \textbf{RQ5:} To what extent does classifier attention overlap the lesion masks supplied
+    by PlantSeg?
+\end{itemize}
+
+The contributions are a reproducible two-stage pipeline for lesion localization and 115-class
+disease recognition; a controlled comparison with disease-aware YOLO11n; complete five-fold
+retraining to estimate split variability; a 21-class PlantSeg--PlantVillage comparison; and
+synthetic-corruption and mask-based explanation analyses. Together, these experiments cover the
+data selection, cleaning, transformation, modeling, evaluation, and prototype stages of the
+Knowledge Discovery in Databases (KDD) process.
+
+\section{Related Work}
+
+\subsection{Plant-Disease Image Classification}
+
+PlantVillage made large-scale supervised plant-disease classification accessible by collecting
+more than 54,000 healthy and diseased leaf images. Mohanty \emph{et al.} reported 99.35\% accuracy
+over 38 crop--disease classes using convolutional networks~\cite{mohanty2016plantvillage}. The
+dataset is nevertheless controlled: leaves are centered, image dimensions are uniform, and
+background variation is limited. Their evaluation on differently acquired images fell to slightly
+above 31\%, illustrating that within-dataset performance is not sufficient evidence for field use.
+
+PlantDoc was later introduced to represent non-laboratory imagery, including background noise,
+varying illumination, multiple leaves, and lower-resolution symptoms~\cite{singh2020plantdoc}.
+PlantSeg further expands in-the-wild supervision by pairing diverse plant-disease images with
+pixel-level lesion masks across 115 disease categories and 34 plant hosts~\cite{wei2024plantseg}.
+These resources motivate treating controlled and natural images as distinct domains rather than
+merging them without an explicit experimental role.
+
+Transfer learning is useful when individual disease classes contain few images. EfficientNet uses
+compound scaling to balance network depth, width, and input resolution~\cite{tan2019efficientnet}.
+MobileNetV3 combines hardware-aware architecture search with efficient mobile building blocks,
+targeting a favorable accuracy--latency trade-off~\cite{howard2019mobilenetv3}. This work compares
+both ImageNet-initialized architectures with a small CNN trained from scratch on identical lesion
+crops.
+
+\subsection{Localization and Visual Explanation}
+
+Modern one-stage detectors make localization practical in an interactive pipeline. YOLO11 supports
+object detection with compact variants such as YOLO11n and provides COCO-pretrained
+weights~\cite{jocher2024yolo11}. The present study uses the same nano architecture in two roles: a
+single-class lesion detector and a 115-class disease-aware detector. The first delegates disease
+discrimination to a specialized classifier; the second is simpler at inference but learns
+localization and fine-grained classification jointly.
+
+Grad-CAM uses class-score gradients flowing into the last convolutional layer to construct a coarse,
+class-discriminative activation map without modifying or retraining the network
+~\cite{selvaraju2017gradcam}. Such a map can reveal whether a classifier attends near visible
+symptoms, but it is neither a causal explanation nor a segmentation prediction. PlantSeg masks
+enable a quantitative attention-alignment test rather than relying solely on attractive overlays.
+
+\subsection{Robustness and Domain Shift}
+
+Common-corruption benchmarks demonstrate that neural classifiers may be unstable under blur,
+noise, compression, and other non-adversarial changes~\cite{hendrycks2019robustness}. This project
+adapts that principle to plant imagery by testing six corruption families at five severity levels.
+It complements the synthetic study with a cross-dataset experiment: the unchanged PlantSeg-trained
+pipeline is evaluated on PlantVillage classes that have defensible disease-level equivalents. This
+design distinguishes sensitivity to controlled perturbations from a broader acquisition-domain
+change.
+
+\section{Use Cases and System Architecture}
+
+\subsection{Use-Case Scenarios}
+
+In the primary scenario, a user uploads an RGB photograph of a symptomatic plant. The assistant
+localizes a suspected lesion, displays the crop or bounding region, predicts a supported disease,
+and presents confidence and likely alternatives. A Grad-CAM overlay exposes regions associated with
+the prediction, while a warning discourages reliance on low-confidence output. The result is a
+preliminary screening aid; an agronomic expert remains responsible for diagnosis and intervention.
+
+A secondary analysis scenario serves developers and researchers. Saved predictions, confusion
+matrices, corruption curves, and explanation examples can be inspected through the experiment
+notebook. This makes errors attributable to localization, classification, class imbalance, or
+domain shift easier to separate.
+
+The assistant is closed-set: it always selects among PlantSeg disease categories after either a
+detector crop or full-image fallback. Healthy plants, unknown diseases, and images far outside the
+training distribution are therefore not reliably rejected. Confidence is communicated as a model
+score rather than diagnostic certainty.
+
+\subsection{Architecture}
+
+Fig.~\ref{fig:architecture} summarizes the two-stage inference path. The detector returns zero or
+more lesion boxes. When boxes exist, their union is expanded by a 10\% margin and cropped; otherwise
+the full image is passed to the classifier. The selected classifier produces a softmax distribution,
+from which the top disease, confidence, and alternatives are obtained. Grad-CAM is computed for the
+predicted class within the same crop and mapped back to full-image coordinates.
+
+\begin{figure}[t]
+\centering
+\fbox{\begin{minipage}{0.92\columnwidth}
+\centering
+Uploaded RGB image\\[2pt]
+$\downarrow$\\[2pt]
+Class-agnostic YOLO11n lesion detector\\[2pt]
+$\swarrow$ detection \hspace{12mm} no detection $\searrow$\\[-1pt]
+Union box + 10\% margin \hspace{7mm} Full image fallback\\[2pt]
+$\searrow$ \hspace{32mm} $\swarrow$\\[2pt]
+Selected 115-class classifier\\[2pt]
+$\downarrow$\\[2pt]
+Disease, confidence, alternatives, and Grad-CAM\\[2pt]
+$\downarrow$\\[2pt]
+User interface and low-confidence warning
+\end{minipage}}
+\caption{Two-stage plant disease assistant. The single-stage baseline replaces the detector and
+classifier with one disease-aware YOLO11n.}
+\label{fig:architecture}
+\end{figure}
+
+The standalone comparison replaces the cascade with one disease-aware YOLO11n. Its
+highest-confidence box provides the image-level disease prediction. If the detector returns no box,
+the image is counted as incorrect; consequently, both conditional classification quality and
+coverage affect its end-to-end score.
+
+\subsection{Model Components}
+
+\textbf{Class-agnostic YOLO11n:} COCO-pretrained YOLO11n is fine-tuned to predict one \texttt{lesion}
+class. Each target box encloses the nonzero region of a binary PlantSeg lesion mask. This formulation
+asks the detector to learn localization without separating 115 disease labels.
+
+\textbf{Disease-aware YOLO11n:} the standalone model uses the same architecture, initialization,
+images, and mask-derived geometry, but each box carries the image-level PlantSeg disease ID. The
+comparison therefore changes the detector label task while holding the localization target fixed.
+
+\textbf{Baseline CNN:} the from-scratch classifier contains four convolutional blocks with 32, 64,
+128, and 256 channels. Every block applies a $3\times3$ convolution, batch normalization, ReLU, and
+$2\times2$ max pooling. Adaptive average pooling, dropout with probability 0.3, and a 115-output
+linear layer produce the logits.
+
+\textbf{EfficientNetB0 and MobileNetV3-Large:} both networks begin from ImageNet weights
+~\cite{deng2009imagenet}. Their original heads are replaced by 115-output linear layers and the
+complete networks are fine-tuned on detector-generated crops. EfficientNetB0 provides a compact
+compound-scaled model; MobileNetV3-Large provides a mobile-oriented alternative.
+
+\section{Datasets and KDD Process}
+
+\subsection{Dataset Roles}
+
+Table~\ref{tab:datasets} summarizes the deliberately separate roles of the three datasets. They are
+not merged because their taxonomies, annotation types, and visual distributions differ.
+
+\begin{table*}[t]
+\caption{Dataset characteristics and experimental roles. Counts describe the audited local
+representations used by the project.}
+\label{tab:datasets}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrlll}
+\toprule
+Dataset & Images & Classes & Acquisition & Available supervision & Role in this work \\
+\midrule
+PlantSeg & 7,774 & 115 & In-the-wild & Image label and lesion mask & Primary train/validation/test, localization, Grad-CAM \\
+PlantVillage & 54,305 & 38 & Controlled & Image label & Secondary domain on 21 mapped diseases \\
+PlantDoc & 2,578 & 29 & In-the-wild & 8,910 boxes & Optional backup after cleaning \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\subsection{PlantSeg}
+
+The audited PlantSeg release contains 7,774 paired RGB images and lesion masks across 34 plant types
+and 115 plant--disease combinations. Its predefined split contains 5,367 training, 846 validation,
+and 1,561 test images. The training split includes every class, while validation lacks class ID 68
+and test lacks class ID 41. The median class contains 55 images, and class sizes range from 3 to 323.
+This imbalance motivates macro F1, balanced accuracy, and per-class recall rather than accuracy alone.
+
+The project's audit treats \texttt{Metadata.csv} as the image-label authority and PNG masks as the
+localization authority. Every nonzero mask value is interpreted as lesion foreground. Fresh
+enclosing boxes are derived because the supplied COCO data contain 220 image-level mask/box
+disagreements, 51 out-of-bounds boxes, one image without an annotation, and incomplete category
+metadata. EXIF orientation is applied consistently to image/mask pairs; eight orientation cases were
+identified. PlantSeg supplies all model fitting, the official holdout, synthetic robustness images,
+and explanation ground truth.
+
+\subsection{PlantVillage}
+
+PlantVillage contains 54,305 audited color images in 38 classes, with all images at
+$256\times256$ pixels. Leaves are usually centered against simple backgrounds, making it a useful
+controlled benchmark but not evidence of natural-scene performance. Class sizes range from 152 to
+5,507 images. The repository's official split contains 43,596 training and 10,709 test images.
+
+The project never trains on PlantVillage. An explicit mapping retains 21 disease-level classes that
+have defensible PlantSeg equivalents; healthy categories are excluded because PlantSeg has no
+healthy class. The mapped official PlantVillage test view contains 6,057 images, while the same
+classes yield 378 images from the PlantSeg official test split. Both views use the unchanged
+PlantSeg-trained detector, classifiers, thresholds, and preprocessing. The comparison therefore
+measures domain behavior rather than the benefit of additional training data.
+
+\subsection{PlantDoc}
+
+The audited PlantDoc representation contains 2,578 field images, 29 labels, and 8,910 bounding
+boxes. It offers cluttered backgrounds, occlusion, multiple leaves, and heterogeneous resolution,
+but also contains exact train/test duplicates, invalid or out-of-bounds boxes, two classes absent
+from test, severe annotation imbalance, and boxes with mixed granularity. Although the original
+dataset was created to study recognition outside laboratory settings~\cite{singh2020plantdoc}, this
+local representation is excluded from the minimum experiment. It can be used only after grouped
+deduplication, annotation repair, and explicit taxonomy mapping.
+
+\subsection{KDD Workflow}
+
+The complete KDD process is represented as follows. Problem understanding defines field-image
+disease screening, functional requirements, and the boundary between assistance and expert
+diagnosis. Data selection assigns PlantSeg, PlantVillage, and PlantDoc distinct roles. Cleaning
+verifies checksums and decoding, audits masks and boxes, identifies split duplicates, and rejects
+unsupported taxonomy equivalences. Transformation applies orientation, binarizes masks, derives
+YOLO boxes, creates matched domain views, resizes and normalizes inputs, and generates predicted
+lesion crops. Modeling trains two YOLO variants and three classifiers. Evaluation combines holdout,
+cross-validation, localization, calibration, domain-shift, corruption, and explanation metrics.
+Finally, the prototype exposes the selected inference path through an upload-oriented interface.
+
+\section{Experimental Setup}
+
+\subsection{Split and Leakage-Control Protocol}
+
+The main development path preserves PlantSeg's official partitions. The 5,367 training images
+update parameters, the 846 validation images select checkpoints by validation performance, and the
+1,561 test images remain an untouched final holdout. No test image is used for fitting, checkpoint
+selection, threshold selection, or cross-validation. Evaluation is run after the training choices
+are fixed.
+
+Cross-validation is a separate stability estimate over only the official training pool. It does not
+absorb or replace the official validation/test sets. This distinction permits reporting both
+within-training variability and performance on the dataset publisher's holdout.
+
+\subsection{Five-Fold Cross-Validation}
+
+The implementation uses five-fold \texttt{StratifiedKFold} with shuffling and seed 42. Disease IDs
+provide the strata. Two ultra-rare training classes cannot occur in every fold: class ID 41 has two
+images and class ID 68 has four. These samples are removed from the standard stratification step and
+assigned round-robin across folds. Hence, fold-level macro metrics average the classes represented in
+that fold.
+
+The complete processing chain is reconstructed independently in every fold. First, four folds form
+the training partition and the fifth forms fold validation. Next, mask-derived YOLO views are built
+for those partitions. New class-agnostic and disease-aware YOLO11n models are initialized from the
+common COCO checkpoint and trained only on the four folds. The fold-specific lesion detector then
+generates both training and validation crops. Finally, a new baseline CNN is initialized from
+scratch, while new EfficientNetB0 and MobileNetV3-Large instances start from ImageNet weights; each
+is trained on the four-fold crops and evaluated on held-out crops. This prevents a validation crop
+from being generated by a detector that learned from the same image.
+
+Each fold/model combination uses 50 epochs by default. Detector precision, recall, mAP50, and
+mAP50--95, and classifier best validation macro F1 are aggregated as arithmetic mean, population
+standard deviation, and completed-fold count. Completed fold/model outputs are reused on rerun.
+The split is stratified by class, not grouped by source URL, plant instance, or perceptual duplicate
+cluster; this is retained as a threat to validity.
+
+\subsection{Training Configuration}
+
+Table~\ref{tab:training} lists the shared training configuration. Both YOLO variants use
+$640\times640$ input, batch size 16, and Ultralytics training with pretrained YOLO11n weights. The
+classifiers use $224\times224$ input, batch size 32, AdamW with learning rate $3\times10^{-4}$ and
+weight decay $10^{-4}$, cosine annealing, and ordinary cross-entropy. The current implementation
+does not use class weighting or a balanced sampler.
+
+Training augmentation for classifiers consists of random resized crop with scale 0.75--1.0,
+horizontal flip, rotation within $\pm10^\circ$, and mild brightness, contrast, saturation, and hue
+jitter. Validation uses deterministic resize and ImageNet normalization. The baseline CNN is
+initialized from scratch; the other classifiers are ImageNet-initialized. Seed 42 is applied to
+Python, NumPy, and PyTorch operations where supported.
+
+\begin{table}[t]
+\caption{Training configuration.}
+\label{tab:training}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lll}
+\toprule
+Setting & YOLO variants & Classifiers \\
+\midrule
+Initialization & COCO YOLO11n & Scratch / ImageNet \\
+Input resolution & $640\times640$ & $224\times224$ \\
+Output classes & 1 or 115 & 115 \\
+CV epochs & 50 per fold & 50 per fold \\
+Batch size & 16 & 32 \\
+Optimizer & Ultralytics automatic & AdamW \\
+Learning rate & artifact-defined & $3\times10^{-4}$ \\
+Weight decay & artifact-defined & $10^{-4}$ \\
+Selection metric & validation mAP & validation macro F1 \\
+Seed & 42 & 42 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Evaluation Protocols}
+
+\textbf{Primary holdout:} both YOLO models are evaluated against boxes derived from PlantSeg test
+masks. The cascade passes the detector union crop to each classifier and uses full-image fallback
+when no lesion exceeds the fixed confidence threshold. Standalone YOLO uses its highest-confidence
+detection as the image label; no detection is incorrect.
+
+\textbf{Cross-domain:} all three pipelines are evaluated on the 21-class PlantSeg and PlantVillage
+mapped test views without PlantVillage fine-tuning. Each domain is reported separately, together
+with the absolute PlantVillage-minus-PlantSeg change.
+
+\textbf{Synthetic robustness:} Gaussian blur, brightness, contrast, JPEG compression, occlusion,
+and crop/framing transformations are applied at severity levels 1--5. The clean baseline and every
+corrupted condition use the same fixed PlantSeg images and pipeline.
+
+\textbf{Grad-CAM alignment:} Grad-CAM is computed for the predicted class on the detector crop and
+mapped into full-image coordinates. The resulting heatmap is compared pixel-for-pixel with the
+binary PlantSeg mask. Representative successes and failures accompany aggregate metrics.
+
+\subsection{Metrics and Reproducibility}
+
+For class $c$, precision $P_c$ and recall $R_c$ produce
+$F1_c=2P_cR_c/(P_c+R_c)$. Macro F1 is the unweighted mean over represented classes,
+
+\begin{equation}
+F1_{\mathrm{macro}}=\frac{1}{C}\sum_{c=1}^{C}F1_c,
+\end{equation}
+
+and balanced accuracy is mean per-class recall. Detection uses precision, recall, mAP50, and
+mAP50--95. Coverage measures the fraction of images for which standalone YOLO emits a detection.
+Expected calibration error aggregates the absolute confidence--accuracy gap over confidence bins
+~\cite{guo2017calibration}. Robustness and domain changes are reported in absolute percentage
+points. Explanation metrics include thresholded and top-quantile intersection-over-union (IoU),
+precision, recall, mask-energy fraction, and pointing-game hit rate.
+
+The implementation uses Python 3.13, PyTorch, torchvision, scikit-learn, and Ultralytics. Dataset
+preparation, training, evaluation, and artifact generation are scripted, while commented Jupyter
+notebooks expose the reasoning and results workflow. Final reporting records exact package versions,
+hardware, accelerator, checkpoint paths, and run dates alongside each artifact.
+
+\section{Results and Discussion}
+
+Results below are populated directly from the final JSON/CSV artifacts after confirming that they
+reference the selected checkpoints. Percentages are reported consistently, and fold variation is
+never replaced by the best fold.
+
+\subsection{Primary PlantSeg Comparison}
+
+\begin{table*}[t]
+\caption{End-to-end image classification on the official PlantSeg test split.}
+\label{tab:primary-results}
+\centering
+\begin{tabular}{lccccc}
+\toprule
+System & Accuracy (\%) & Macro F1 (\%) & Balanced acc. (\%) & Coverage (\%) & Images/s \\
+\midrule
+Disease-aware YOLO11n & 61.37 & 53.32 & 49.60 & 86.48 & 26.3 \\
+Lesion YOLO + baseline CNN & 41.32 & 29.04 & 29.99 & 100 & 28.7 \\
+Lesion YOLO + EfficientNetB0 & 66.69 & 59.02 & 58.69 & 100 & 24.5 \\
+Lesion YOLO + MobileNetV3-Large & \textbf{66.75} & 58.17 & 58.69 & 100 & 24.3 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+As shown in Table~\ref{tab:primary-results}, EfficientNetB0 obtains the highest holdout macro F1,
+59.02\%, while MobileNetV3-Large obtains the highest accuracy, 66.75\%. The best cascade exceeds
+disease-aware YOLO macro F1 by 5.70 \ppoints. Standalone coverage is 86.48\%, so missed detections
+remain one source of error even after longer training; errors among detected images account for the
+remaining gap. RQ1 is therefore answered in favor of the two-stage design for classification
+quality, although standalone YOLO remains operationally simpler.
+
+\begin{table}[t]
+\caption{Detection performance on the PlantSeg test split.}
+\label{tab:detection-results}
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Detector & Precision & Recall & mAP50 & mAP50--95 \\
+\midrule
+Lesion YOLO11n & 85.27 & 81.94 & 88.22 & 61.52 \\
+Disease-aware YOLO11n & 54.93 & 49.90 & 50.15 & 34.47 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+The two detection rows represent different tasks. The class-agnostic model is correct when it
+localizes a lesion, whereas the disease-aware model must also assign the correct fine-grained class.
+The 38.07-point mAP50 gap is consistent with the additional fine-grained classification burden of
+the disease-aware detector; it must assign the right disease as well as localize the lesion.
+
+\subsection{Five-Fold Stability}
+
+\begin{table*}[t]
+\caption{Five-fold cross-validation over the PlantSeg official training pool. Values are
+mean $\pm$ population standard deviation.}
+\label{tab:cv-results}
+\centering
+\begin{tabular}{llcc}
+\toprule
+Model & Metric & Mean $\pm$ std. (\%) & Completed folds \\
+\midrule
+Lesion YOLO11n & mAP50 & 85.34 $\pm$ 0.56 & 5/5 \\
+Lesion YOLO11n & mAP50--95 & 56.96 $\pm$ 1.00 & 5/5 \\
+Disease-aware YOLO11n & mAP50 & 40.90 $\pm$ 0.66 & 5/5 \\
+Disease-aware YOLO11n & mAP50--95 & 29.00 $\pm$ 0.78 & 5/5 \\
+Baseline CNN & Macro F1 & 20.09 $\pm$ 0.75 & 5/5 \\
+EfficientNetB0 & Macro F1 & \textbf{59.39} $\pm$ 1.99 & 5/5 \\
+MobileNetV3-Large & Macro F1 & 57.27 $\pm$ 1.44 & 5/5 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Table~\ref{tab:cv-results} answers RQ2: EfficientNetB0 has the highest mean cross-validated macro
+F1 (59.39\%, $\pm$1.99 \ppoints{}), the same ranking as on the official holdout, where it also leads
+MobileNetV3-Large (59.02\% vs.\ 58.17\% macro F1). The standard deviations are small relative to
+the means for every model, particularly the lesion detector (mAP50 varying by roughly one point
+across folds), indicating that the official-split ranking is not an artifact of one favorable
+train/validation partition. The five-fold classifier macro F1 values are systematically lower than
+the corresponding official-holdout figures, consistent with each fold using a shorter, 50-epoch
+training budget on four-fifths of the training pool rather than the longer schedule used for the
+official-split models. Because two ultra-rare classes cannot appear in every fold, these estimates
+should be interpreted as performance over the classes represented in each fold rather than uniform
+evidence for all 115 classes.
+
+\subsection{Cross-Domain Evaluation}
+
+\begin{table*}[t]
+\caption{Matched 21-class evaluation. Change is PlantVillage minus PlantSeg in percentage points.}
+\label{tab:domain-results}
+\centering
+\begin{tabular}{lccccc}
+\toprule
+Classifier pipeline & PlantSeg macro F1 & PlantVillage macro F1 & Change & PlantSeg ECE & PlantVillage ECE \\
+\midrule
+Baseline CNN & 34.52 & 10.92 & $-$23.60 & 4.89 & 14.81 \\
+EfficientNetB0 & 63.63 & 35.73 & $-$27.90 & 28.86 & 42.79 \\
+MobileNetV3-Large & \textbf{64.75} & \textbf{39.03} & $-$25.72 & 28.93 & 38.24 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Every classifier loses substantial macro F1 when moved from PlantSeg's 378-image matched subset to
+PlantVillage's 6,057-image matched subset over the same 21 shared classes, using the identical
+lesion-YOLO front end and crop margin in both cases. MobileNetV3-Large remains the strongest
+pipeline on PlantVillage (39.03\% macro F1) despite a 25.72-point drop. The baseline CNN loses the
+fewest absolute points (23.60), but from a much lower starting accuracy; EfficientNetB0 drops the
+most (27.90 points). Calibration also
+degrades on the new domain: expected calibration error roughly triples for the baseline CNN (4.89\%
+to 14.81\%) and increases by 14 and 9 points respectively for EfficientNetB0 and MobileNetV3-Large,
+meaning confidence scores become less trustworthy exactly where accuracy is already lower. The
+standalone disease-aware YOLO degrades even more sharply, with coverage itself falling from
+86.8\% on PlantSeg to 43.2\% on PlantVillage (a 43.5-point drop) because PlantVillage's
+studio-style, single-leaf, uncluttered images differ enough from PlantSeg's field photographs that
+the detector frequently proposes no lesion box at all; its macro F1 falls by 46.34 points, the
+largest shift of any system. The effect cannot be attributed to background alone because sample
+frequency, symptom stage, image source, label interpretation, and detector behavior also differ
+between datasets. RQ3 is therefore answered clearly: none of the tested systems generalize well
+to PlantVillage's controlled photography conditions without further domain adaptation, and the
+two-stage cascade's classifier accuracy degrades gracefully while the standalone detector's
+coverage collapse makes it the least robust choice under domain shift.
+
+\subsection{Synthetic-Corruption Robustness}
+
+\begin{table*}[t]
+\caption{Clean and severity-5 accuracy (\%). Parentheses contain the absolute change from
+the clean condition.}
+\label{tab:robustness-results}
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lccccccc}
+\toprule
+Model & Clean & Blur & Brightness & Contrast & JPEG & Occlusion & Crop \\
+\midrule
+Baseline CNN & 40.0 & 12.5 (-27.5) & 17.8 (-22.2) & 26.1 (-13.8) & 25.8 (-14.2) & 34.5 (-5.4) & 35.5 (-4.5) \\
+EfficientNetB0 & 67.3 & 29.7 (-37.7) & 49.6 (-17.7) & 62.0 (-5.3) & 48.5 (-18.8) & 63.2 (-4.2) & 63.6 (-3.7) \\
+MobileNetV3-Large & 66.5 & 30.5 (-36.0) & 46.8 (-19.7) & 61.8 (-4.7) & 45.7 (-20.8) & 61.3 (-5.2) & 63.8 (-2.7) \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+Gaussian blur is the most damaging transformation for every model. At severity 5, EfficientNetB0
+falls from 67.3\% to 29.7\% accuracy and MobileNetV3-Large falls from 66.5\% to 30.5\%. Brightness
+and JPEG compression cause intermediate degradation. Crop and occlusion are comparatively well
+tolerated, consistent with the random resized crop and horizontal-flip augmentation used during
+classifier training. The pretrained classifiers lose more absolute accuracy to severe blur than
+the baseline CNN, although they remain substantially more accurate. RQ4 therefore identifies blur
+as the principal tested acquisition weakness.
+
+\subsection{Grad-CAM Alignment}
+
+\begin{table}[t]
+\caption{Grad-CAM overlap with PlantSeg lesion masks.}
+\label{tab:gradcam-results}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Metric & Mean (\%) & Median (\%) \\
+\midrule
+IoU, threshold 0.5 & 21.3 & 18.9 \\
+IoU, top 20\% & 24.2 & 22.1 \\
+Precision, top 20\% & 41.2 & 34.2 \\
+Recall, top 20\% & 52.7 & 48.1 \\
+Mask energy fraction & 41.5 & 38.2 \\
+Pointing-game hit rate & 58.8 & 100.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:gradcam-results} shows partial but meaningful spatial alignment. The
+highest-activation point falls inside the annotated lesion in 58.8\% of images, while 41.5\% of
+activation energy is concentrated inside masks that cover 21.3\% of the image on average. The
+top-20\% heatmap reaches 24.2\% mean IoU and favors recall over precision, suggesting relatively
+broad attention. RQ5 is therefore answered cautiously: classifier evidence is preferentially
+concentrated near lesions, but the maps are not accurate lesion segmentations and do not establish
+causal reasoning.
+
+\subsection{Efficiency and Error Analysis}
+
+A fair deployment comparison runs only the selected classifier in the cascade, timed end to end
+(image load, YOLO inference, crop, and one classifier) at batch size 1 on the same Apple Silicon
+(MPS) accelerator used for training, over 200 sampled test images after a 10-image warm-up.
+Table~\ref{tab:primary-results} reports the resulting throughput. Standalone disease-aware YOLO is
+the smallest model by far (2.66M parameters, 5.6~MB checkpoint) and reaches 26.3 images/s mean
+throughput (18.1~ms median latency), but its 95th-percentile latency is far higher (231~ms),
+indicating occasional slow outlier images rather than uniformly fast inference. The baseline CNN
+is the fastest cascade at 28.7 images/s (3.0M parameters, 10.5~MB), and
+the two pretrained classifiers are close to each other and slightly slower (EfficientNetB0: 24.5
+images/s, 6.7M parameters, 55.8~MB; MobileNetV3-Large: 24.3 images/s, 6.9M parameters, 58.0~MB).
+The throughput ranking does not track accuracy: the fastest system (baseline CNN) is also the
+least accurate, and MobileNetV3-Large trades a marginal throughput cost for a 29-point higher
+macro F1 than the baseline CNN. All four systems remain comfortably above real-time single-image
+throughput requirements for an advisory or field-diagnosis tool on this hardware. The earlier
+figure obtained by running all three classifiers simultaneously must not be used as a direct
+latency comparison with standalone YOLO, since it measures combined rather than single-classifier
+cost.
+
+For the selected MobileNetV3-Large cascade, eight of the 114 represented test classes have zero
+recall, all among the rarest classes in the training pool (support between one and nine test
+images), including bell pepper frogeye leaf spot, broccoli ring spot, and peach rust. The most
+frequent confusions pair visually similar symptoms on related host species rather than unrelated
+diseases: squash and zucchini powdery mildew are each other's most common misclassification (13
+and 11 occurrences), cucumber powdery mildew is frequently predicted as squash powdery mildew (10
+occurrences), and ginger sheath blight is frequently predicted as rice sheath blight (10
+occurrences). This pattern suggests the classifier has learned a symptom-level visual signature
+that generalizes across closely related crops rather than a crop-specific one, which is desirable
+for visual similarity but a genuine source of species-level error. Mean softmax confidence is
+95.43\% for correct predictions versus 79.69\% for incorrect ones, a 15.74-point gap indicating the
+model is comparatively, though not perfectly, under-confident on its errors; this partial
+separation supports using a confidence threshold to flag low-certainty predictions for expert
+review rather than treating every output as equally trustworthy. These observations motivate the
+limitations and future work below.
+
+\section{Prototype and Limitations}
+
+\subsection{Prototype}
+
+The prototype layer accepts a common RGB image format, loads the selected detector and classifier,
+and follows the pipeline in Fig.~\ref{fig:architecture}. It displays the lesion crop, predicted
+disease, model confidence, alternatives, and an explanation overlay. A low-confidence message
+instructs the user to seek expert assessment rather than treating the result as a diagnosis. Models
+are loaded once per application session so that subsequent requests incur only inference and
+visualization latency. The interface demonstrates the intelligent-system workflow while preserving
+the distinction between a course prototype and production agronomic software.
+
+\subsection{Limitations and Threats to Validity}
+
+PlantSeg is severely imbalanced, and its rarest classes cannot be represented in every official
+partition or cross-validation fold. The five-fold split is class-stratified rather than grouped by
+source or perceptual duplicate cluster, leaving possible source dependence. Mask-derived enclosing
+boxes can be coarse when lesions are extensive or disconnected. The 21-class cross-domain mapping
+covers only a subset of either taxonomy, and the domain sample counts and acquisition protocols are
+unequal. Consequently, the domain comparison measures the combined effect of several dataset
+differences rather than a single isolated factor.
+
+The classifier is closed-set and has no explicit unknown or healthy rejection mechanism. Synthetic
+corruptions are useful controlled probes but do not span all field conditions. Grad-CAM is coarse
+and non-causal. Runtime depends on hardware, batch size, library version, and whether all classifiers
+or only the selected model are executed. PlantDoc is omitted from the core experiment because its
+local annotations and split require further repair. Finally, neither agronomic outcomes nor the
+consequences of incorrect advice are evaluated; the system must not prescribe treatment.
+
+\section{Conclusion}
+
+This work designs and evaluates an intelligent assistant for recognizing plant disease in field
+images. The system combines class-agnostic YOLO11n localization with EfficientNetB0 and is compared
+with a disease-aware single-stage YOLO11n. On the official PlantSeg test split, the selected
+cascade obtains 59.02\% macro F1, 5.70 \ppoints{} above standalone YOLO. Five-fold cross-validation
+confirms this ranking is stable across different train/validation partitions (EfficientNetB0 mean
+macro F1 59.39\%, $\pm$1.99 \ppoints, ahead of MobileNetV3-Large at 57.27\%, $\pm$1.44 \ppoints,
+and the from-scratch baseline CNN at 20.09\%, $\pm$0.75 \ppoints). The matched PlantVillage
+cross-domain evaluation shows this ranking is preserved but every system degrades substantially
+under domain shift: MobileNetV3-Large remains the strongest classifier pipeline (39.03\% macro F1,
+down 25.72 \ppoints{} from PlantSeg) while the standalone YOLO's usable coverage collapses from
+86.8\% to 43.2\%. Severe blur is the largest tested corruption weakness, and Grad-CAM places 41.5\%
+of its activation energy inside lesions occupying 21.3\% of the image on average.
+
+Overall, the available results support explicit lesion localization as a useful basis for
+field-image disease recognition, and five-fold cross-validation confirms the model ranking is not
+an artifact of a single data split; the domain-shift results show this generalization is fragile
+and the two-stage cascade degrades more gracefully than the standalone detector. Future
+work should prioritize source-grouped
+deduplication, better rare-class learning, calibrated unknown-class rejection, domain-diverse field
+data, and direct segmentation. These extensions would strengthen both scientific validity and the
+safety of an eventual deployment.
+
+\begin{thebibliography}{00}
+
+\bibitem{mohanty2016plantvillage}
+S. P. Mohanty, D. P. Hughes, and M. Salath\'{e}, ``Using deep learning for image-based plant
+disease detection,'' \emph{Frontiers in Plant Science}, vol. 7, Art. no. 1419, 2016,
+doi: 10.3389/fpls.2016.01419.
+
+\bibitem{singh2020plantdoc}
+D. Singh, N. Jain, P. Jain, P. Kayal, S. Kumawat, and N. Batra, ``PlantDoc: A dataset for visual
+plant disease detection,'' in \emph{Proc. 7th ACM IKDD CoDS and 25th COMAD}, 2020, pp. 249--253,
+doi: 10.1145/3371158.3371196.
+
+\bibitem{wei2024plantseg}
+T. Wei, Z. Chen, X. Yu, S. Chapman, P. Melloy, and Z. Huang, ``PlantSeg: A large-scale in-the-wild
+dataset for plant disease segmentation,'' arXiv:2409.04038, 2024. Dataset release:
+doi: 10.5281/zenodo.17719108.
+
+\bibitem{tan2019efficientnet}
+M. Tan and Q. V. Le, ``EfficientNet: Rethinking model scaling for convolutional neural networks,''
+in \emph{Proc. 36th Int. Conf. Machine Learning}, 2019, pp. 6105--6114.
+
+\bibitem{howard2019mobilenetv3}
+A. Howard \emph{et al.}, ``Searching for MobileNetV3,'' in \emph{Proc. IEEE/CVF Int. Conf.
+Computer Vision}, 2019, pp. 1314--1324, doi: 10.1109/ICCV.2019.00140.
+
+\bibitem{jocher2024yolo11}
+G. Jocher and J. Qiu, ``Ultralytics YOLO11,'' version 11.0.0, 2024. [Online]. Available:
+\url{https://github.com/ultralytics/ultralytics}
+
+\bibitem{selvaraju2017gradcam}
+R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, ``Grad-CAM: Visual
+explanations from deep networks via gradient-based localization,'' in \emph{Proc. IEEE Int. Conf.
+Computer Vision}, 2017, pp. 618--626, doi: 10.1109/ICCV.2017.74.
+
+\bibitem{hendrycks2019robustness}
+D. Hendrycks and T. Dietterich, ``Benchmarking neural network robustness to common corruptions and
+perturbations,'' in \emph{Proc. Int. Conf. Learning Representations}, 2019.
+
+\bibitem{deng2009imagenet}
+J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei, ``ImageNet: A large-scale
+hierarchical image database,'' in \emph{Proc. IEEE Conf. Computer Vision and Pattern Recognition},
+2009, pp. 248--255.
+
+\bibitem{guo2017calibration}
+C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, ``On calibration of modern neural networks,'' in
+\emph{Proc. 34th Int. Conf. Machine Learning}, 2017, pp. 1321--1330.
+
+\end{thebibliography}
+
+\end{document}
