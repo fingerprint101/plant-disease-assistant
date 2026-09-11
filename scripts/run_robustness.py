@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Evaluate classifier robustness under synthetic corruptions of the PlantSeg test set.
+"""Evaluate pipeline and standalone YOLO robustness on the PlantSeg test set.
 
 Applies each corruption in configs/project.yaml at every configured severity level to a
 fixed, reproducible subset of the official PlantSeg test split, then runs the same
-lesion-YOLO-to-classifier pipeline used by evaluate_pipeline.py on each corrupted variant.
+lesion-YOLO-to-classifier pipelines and disease-aware YOLO on each corrupted variant.
 Corruptions are generated on demand rather than stored, matching the "on_demand" plan
 recorded in data/tests/robustness/PlantSeg/variants.csv.
 """
@@ -44,14 +44,18 @@ def parse_args(config: dict) -> argparse.Namespace:
     parser.add_argument(
         "--yolo-checkpoint",
         type=Path,
-        default=(
-            OUTPUTS_DIR / "yolo" / detection["run_name"] / "weights" / "best.pt"
-        ),
+        default=(OUTPUTS_DIR / "yolo" / detection["run_name"] / "weights" / "best.pt"),
     )
     parser.add_argument(
         "--classifier-dir",
         type=Path,
         default=OUTPUTS_DIR / "classification",
+    )
+    parser.add_argument(
+        "--standalone-yolo-checkpoint",
+        type=Path,
+        default=(OUTPUTS_DIR / "yolo" / detection["standalone_run_name"] / "weights" / "best.pt"),
+        help="Disease-aware YOLO checkpoint used for the standalone comparison.",
     )
     parser.add_argument(
         "--models",
@@ -206,12 +210,21 @@ def load_classifiers(
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval().to(device)
         models[name] = model
-        print(f"Loaded {name} from epoch {checkpoint['epoch']}")
+        print(f"Loaded {name}")
     return models
+
+
+def standalone_prediction(result) -> tuple[int, float]:
+    """Return the highest-confidence disease prediction, or -1 when nothing is detected."""
+    if not len(result.boxes):
+        return -1, 0.0
+    best = int(result.boxes.conf.argmax().item())
+    return int(result.boxes.cls[best].item()), float(result.boxes.conf[best].item())
 
 
 def evaluate_variant(
     detector: YOLO,
+    standalone_detector: YOLO,
     models: dict[str, torch.nn.Module],
     rows: list[dict],
     test_root: Path,
@@ -224,8 +237,9 @@ def evaluate_variant(
 ) -> dict[str, dict[str, float]]:
     """Run the lesion-YOLO-to-classifier pipeline on one corruption/severity variant."""
     targets: list[int] = []
-    predictions: dict[str, list[int]] = {name: [] for name in models}
-    confidences: dict[str, list[float]] = {name: [] for name in models}
+    system_names = [*models, "standalone_yolo"]
+    predictions: dict[str, list[int]] = {name: [] for name in system_names}
+    confidences: dict[str, list[float]] = {name: [] for name in system_names}
     fallback_count = 0
 
     for row in rows:
@@ -234,11 +248,10 @@ def evaluate_variant(
             image = handle.convert("RGB")
         if corruption is not None:
             image = apply_corruption(image, corruption, severity)
-        image_array = np.asarray(image)
-        height, width = image_array.shape[:2]
+        width, height = image.size
 
         results = detector.predict(
-            source=image_array,
+            source=image,
             conf=args.confidence,
             imgsz=config["detection"]["image_size"],
             device=yolo_device(device),
@@ -261,13 +274,27 @@ def evaluate_variant(
                 predictions[name].append(int(prediction.item()))
                 confidences[name].append(float(confidence.item()))
 
+        standalone_result = standalone_detector.predict(
+            source=image,
+            conf=args.confidence,
+            imgsz=config["detection"]["image_size"],
+            device=yolo_device(device),
+            verbose=False,
+        )[0]
+        prediction, confidence = standalone_prediction(standalone_result)
+        predictions["standalone_yolo"].append(prediction)
+        confidences["standalone_yolo"].append(confidence)
+
     results_by_model: dict[str, dict[str, float]] = {}
-    for name in models:
+    for name in system_names:
         present = sorted(set(targets))
+        prediction_array = np.asarray(predictions[name])
         results_by_model[name] = {
             "accuracy": float(accuracy_score(targets, predictions[name])),
             "macro_f1": float(
-                f1_score(targets, predictions[name], labels=present, average="macro", zero_division=0)
+                f1_score(
+                    targets, predictions[name], labels=present, average="macro", zero_division=0
+                )
             ),
             "recall_macro": float(
                 recall_score(
@@ -275,6 +302,8 @@ def evaluate_variant(
                 )
             ),
             "mean_confidence": float(np.mean(confidences[name])),
+            "coverage": float(np.mean(prediction_array >= 0)),
+            "no_detections": int(np.sum(prediction_array < 0)),
         }
     results_by_model["_meta"] = {
         "images": len(rows),
@@ -284,7 +313,9 @@ def evaluate_variant(
 
 
 def save_plot(records: list[dict], output_dir: Path, model_names: list[str]) -> None:
-    corruptions = sorted({record["corruption"] for record in records if record["corruption"] != "clean"})
+    corruptions = sorted(
+        {record["corruption"] for record in records if record["corruption"] != "clean"}
+    )
     figure, axes = plt.subplots(2, 3, figsize=(15, 8), sharey=True)
     for axis, corruption in zip(axes.flat, corruptions, strict=False):
         for name in model_names:
@@ -321,6 +352,10 @@ def main() -> None:
         raise FileNotFoundError(
             f"Lesion YOLO checkpoint not found: {args.yolo_checkpoint}; run make train-yolo-lesion"
         )
+    if not args.standalone_yolo_checkpoint.is_file():
+        raise FileNotFoundError(
+            f"Disease-aware YOLO checkpoint not found: {args.standalone_yolo_checkpoint}"
+        )
     if not all(1 <= severity <= 5 for severity in args.severity_levels):
         raise ValueError("severity levels must be in 1..5")
 
@@ -332,7 +367,15 @@ def main() -> None:
     detector = YOLO(args.yolo_checkpoint)
     lesion_names = [detector.names[index] for index in range(len(detector.names))]
     if lesion_names != ["lesion"]:
-        raise RuntimeError(f"Crop detector must contain only the 'lesion' class, found: {lesion_names}")
+        raise RuntimeError(
+            f"Crop detector must contain only the 'lesion' class, found: {lesion_names}"
+        )
+    standalone_detector = YOLO(args.standalone_yolo_checkpoint)
+    standalone_names = [
+        standalone_detector.names[index] for index in range(len(standalone_detector.names))
+    ]
+    if standalone_names != class_names:
+        raise RuntimeError("Standalone YOLO checkpoint taxonomy differs from PlantSeg")
 
     test_root = TESTS_DIR / "PlantSeg" / "full"
     with (test_root / "Metadata.csv").open(encoding="utf-8-sig", newline="") as handle:
@@ -353,7 +396,17 @@ def main() -> None:
     for corruption, severity in tqdm(variants, desc="Robustness variants"):
         label = "clean" if corruption is None else corruption
         variant_results = evaluate_variant(
-            detector, models, subset, test_root, corruption, severity, args, config, device, transform
+            detector,
+            standalone_detector,
+            models,
+            subset,
+            test_root,
+            corruption,
+            severity,
+            args,
+            config,
+            device,
+            transform,
         )
         meta = variant_results.pop("_meta")
         for model_name, metrics in variant_results.items():
@@ -391,19 +444,27 @@ def main() -> None:
         if record["corruption"] != "clean"
     ]
     if plot_records:
-        save_plot(plot_records, args.output_dir, list(models))
+        save_plot(plot_records, args.output_dir, [*models, "standalone_yolo"])
 
     summary = {
         "dataset": "PlantSeg test subset (fixed, reproducible)",
         "subset_size": len(subset),
         "yolo_checkpoint": str(args.yolo_checkpoint.resolve()),
+        "standalone_yolo_checkpoint": str(args.standalone_yolo_checkpoint.resolve()),
         "classifiers": list(models),
+        "systems": [*models, "standalone_yolo"],
+        "standalone_policy": (
+            "Highest-confidence box; a missed detection is an incorrect prediction with "
+            "confidence zero"
+        ),
         "corruptions": args.corruptions,
         "severity_levels": args.severity_levels,
         "clean_baseline": clean_by_model,
         "records": records,
     }
-    (args.output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (args.output_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
 
     for model_name, clean in clean_by_model.items():
         print(f"{model_name} clean accuracy: {clean['accuracy']:.3f}")
