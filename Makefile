@@ -2,7 +2,7 @@ UV_CACHE_DIR := $(CURDIR)/.uv-cache
 PYTHON := .venv/bin/python
 RUNTIME_ENV := XDG_CACHE_HOME=$(CURDIR)/.cache MPLCONFIGDIR=$(CURDIR)/.cache/matplotlib YOLO_CONFIG_DIR=$(CURDIR)/.cache
 
-.PHONY: init setup kernel check-datasets check-models train-yolo train-yolo-lesion train-yolo-standalone prepare-crops train-classifiers train-pipeline evaluate evaluate-cross-domain benchmark-efficiency gradcam robustness notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
+.PHONY: init setup kernel check-datasets check-models train-yolo train-yolo-lesion train-yolo-standalone prepare-crops train-classifiers train-pipeline evaluate evaluate-cross-domain benchmark-efficiency gradcam robustness prototype notebook data prepare-data data-plantvillage data-plantdoc data-plantseg clean-cache
 
 init:
 	@if [ ! -x "$(PYTHON)" ]; then $(MAKE) setup; else echo "Python environment already exists; skipping setup"; fi
@@ -60,6 +60,9 @@ gradcam:
 
 robustness:
 	$(RUNTIME_ENV) TORCH_HOME=$(CURDIR)/models PYTHONPATH=src $(PYTHON) scripts/run_robustness.py
+
+prototype:
+	$(RUNTIME_ENV) STREAMLIT_BROWSER_GATHER_USAGE_STATS=false STREAMLIT_SERVER_HEADLESS=true TORCH_HOME=$(CURDIR)/models PYTHONPATH=src $(PYTHON) -m streamlit run app.py
 
 notebook:
 	$(RUNTIME_ENV) PYTHONPATH=src $(PYTHON) -m jupyter lab

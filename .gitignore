@@ -13,7 +13,7 @@ data/training/*
 data/tests/*
 data/processed/
 data/downloads/
-models/
+models/hub/
 outputs/
 runs/
 

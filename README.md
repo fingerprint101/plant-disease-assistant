@@ -48,6 +48,7 @@ Run these commands from the repository root.
 | `make robustness` | Measures accuracy under blur, brightness, contrast, JPEG compression, occlusion, and crop changes. |
 | `make benchmark-efficiency` | Measures latency, throughput, parameter count, and checkpoint size. |
 | `make gradcam` | Compares classifier Grad-CAM maps with PlantSeg lesion masks. |
+| `make prototype` | Starts the image-upload Streamlit prototype with prediction and Grad-CAM output. |
 | `make notebook` | Starts JupyterLab with the project environment. |
 
 Use `make data-plantseg`, `make data-plantvillage`, or `make data-plantdoc` to download only one
@@ -98,9 +99,47 @@ PYTHONPATH=src .venv/bin/python scripts/train_classifiers.py \
   --models mobilenet_v3_large --resume
 ```
 
+## Prototype
+
+The repository includes the final model checkpoints required by the prototype, so running the demo
+does not require downloading the datasets or retraining the models. From the repository root:
+
+```bash
+make setup
+make prototype
+```
+
+`make setup` is required only the first time. The second command starts Streamlit at
+`http://localhost:8501`; open that address in a browser. Stop the server with `Ctrl+C` in the
+terminal.
+
+In the demo:
+
+1. Select either the two-stage pipeline or standalone disease-aware YOLO in the sidebar.
+2. For the two-stage pipeline, select the baseline CNN, EfficientNetB0, or MobileNetV3-Large.
+3. Optionally adjust the threshold used for the low-confidence warning.
+4. Upload a JPG, JPEG, or PNG plant photograph and wait for inference to finish.
+
+The two-stage view shows the detected lesion region, classifier crop, predicted PlantSeg disease,
+confidence, two alternatives, and a Grad-CAM explanation. If lesion detection fails, it classifies
+the full image as a fallback. The standalone view displays disease-aware YOLO boxes and uses the
+highest-confidence detection as its image-level prediction; if it detects nothing, it returns no
+diagnosis. This course prototype is a closed-set screening tool and must not be treated as agronomic
+advice.
+
+If `make` is unavailable, the equivalent command after `make setup` is:
+
+```bash
+XDG_CACHE_HOME=.cache MPLCONFIGDIR=.cache/matplotlib YOLO_CONFIG_DIR=.cache \
+  STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+  STREAMLIT_SERVER_HEADLESS=true \
+  TORCH_HOME=models PYTHONPATH=src .venv/bin/python -m streamlit run app.py
+```
+
 ## Project files
 
 - `configs/project.yaml`: dataset paths, training settings, corruption levels, and random seed.
+- `app.py`: Streamlit image-upload prototype for the selected inference pipeline.
 - `scripts/`: data preparation, training, evaluation, robustness, and analysis commands.
 - `src/`: shared datasets, models, metrics, and pipeline code.
 - `notebooks/01_experiments_and_results.ipynb`: consolidated experiment results and plots.

@@ -15,7 +15,13 @@
 Localization, Classification, Robustness, and Cross-Domain Evaluation}
 
 \author{
-\IEEEauthorblockN{Plant Disease Assistant Project Team}
+\IEEEauthorblockN{Federico Volpi}
+\IEEEauthorblockA{
+M.Sc. in Computer Engineering\\
+University of Pisa, Pisa, Italy
+}
+\and
+\IEEEauthorblockN{Rafay Zia}
 \IEEEauthorblockA{
 M.Sc. in Computer Engineering\\
 University of Pisa, Pisa, Italy
@@ -40,8 +46,10 @@ corruption robustness and Grad-CAM overlap with lesion masks. The best two-stage
 59.02\% macro F1 on the official holdout. Five-fold cross-validation confirms this ranking with a
 mean macro F1 of 59.39\% ($\pm$1.99 \ppoints), showing the result is stable across different
 train/validation partitions rather than an artifact of one split. Severe Gaussian blur is the
-strongest tested corruption, while Grad-CAM obtains 24.2\% mean top-quantile IoU with the annotated
-lesions. The final cross-domain values will complete the transfer analysis. These
+strongest tested corruption for the classifier pipelines, while JPEG compression most strongly
+affects standalone YOLO. Grad-CAM obtains 24.2\% mean top-quantile IoU with the annotated lesions.
+On the matched 21-class PlantVillage benchmark, the strongest classifier pipeline reaches
+39.03\% macro F1, a decrease of 25.72 \ppoints{} from the equivalent PlantSeg subset. These
 experiments evaluate accuracy together with localization, stability,
 explanation alignment, and domain sensitivity rather than relying on a single aggregate score.
 \end{abstract}
@@ -251,9 +259,10 @@ The project's audit treats \texttt{Metadata.csv} as the image-label authority an
 localization authority. Every nonzero mask value is interpreted as lesion foreground. Fresh
 enclosing boxes are derived because the supplied COCO data contain 220 image-level mask/box
 disagreements, 51 out-of-bounds boxes, one image without an annotation, and incomplete category
-metadata. EXIF orientation is applied consistently to image/mask pairs; eight orientation cases were
-identified. PlantSeg supplies all model fitting, the official holdout, synthetic robustness images,
-and explanation ground truth.
+metadata. Eight EXIF orientation cases were identified. The explanation analysis applies
+orientation jointly to each image and mask before measuring overlap, while prepared YOLO views use
+repair-safe copies when image encoding requires it. PlantSeg supplies all model fitting, the
+official holdout, synthetic robustness images, and explanation ground truth.
 
 \subsection{PlantVillage}
 
@@ -281,15 +290,42 @@ deduplication, annotation repair, and explicit taxonomy mapping.
 
 \subsection{KDD Workflow}
 
-The complete KDD process is represented as follows. Problem understanding defines field-image
-disease screening, functional requirements, and the boundary between assistance and expert
-diagnosis. Data selection assigns PlantSeg, PlantVillage, and PlantDoc distinct roles. Cleaning
-verifies checksums and decoding, audits masks and boxes, identifies split duplicates, and rejects
-unsupported taxonomy equivalences. Transformation applies orientation, binarizes masks, derives
-YOLO boxes, creates matched domain views, resizes and normalizes inputs, and generates predicted
-lesion crops. Modeling trains two YOLO variants and three classifiers. Evaluation combines holdout,
-cross-validation, localization, calibration, domain-shift, corruption, and explanation metrics.
-Finally, the prototype exposes the selected inference path through an upload-oriented interface.
+The project follows KDD as an iterative sequence in which findings at one stage change decisions in
+the next. During \emph{domain and goal definition}, the intended use was narrowed from automated
+treatment recommendation to preliminary screening of a symptomatic field photograph. This yielded
+three functional outputs: a localized region, one disease prediction with alternatives and
+confidence, and an explanation. It also established the safety constraint that low-confidence
+results must be referred to an expert.
+
+During \emph{data selection and understanding}, three candidate datasets were profiled for size,
+class support, acquisition setting, supervision, duplicates, and annotation integrity. The audit
+showed that PlantSeg is the only candidate providing both field photographs and pixel-level lesion
+masks at the required taxonomy scale, so its official splits became the primary experiment.
+PlantVillage was retained only as a 21-class controlled-domain test, and PlantDoc was excluded from
+model fitting after its duplicate leakage, invalid boxes, mixed box semantics, and extreme class
+imbalance were identified. Thus, dataset exploration directly determined each dataset's role.
+
+During \emph{cleaning and transformation}, checksums and image decoding were verified, metadata was
+used as the class authority, and every nonzero mask value was treated as lesion foreground. One
+enclosing box was derived from each mask because 220 supplied boxes disagreed with masks and 51
+extended beyond image bounds. The official splits were preserved, lightweight linked dataset views
+were created, and only manually verified label equivalents entered the cross-domain subset. The
+class-agnostic detector then generated train and validation crops with a 10\% margin; a missed
+detection produced a documented full-image fallback. Classifier inputs were resized to
+$224\times224$, augmented only during training, and normalized with ImageNet statistics.
+
+During \emph{modeling and evaluation}, the same YOLO11n backbone was assigned either one lesion
+class or 115 disease classes, isolating the effect of separating localization from classification.
+The resulting crop was evaluated with a from-scratch CNN and two ImageNet-initialized classifiers.
+Validation macro F1 selected classifier checkpoints because the audit revealed severe imbalance;
+detection models used validation mAP. Five-fold reconstruction of the complete training chain
+tested split stability, while the untouched official test split supplied final classification and
+localization results. Cross-domain transfer, synthetic corruptions, calibration, latency, and
+Grad-CAM-to-mask overlap then exposed failure modes hidden by aggregate accuracy. These findings
+feed back into the next KDD iteration: rare-class sampling, blur augmentation, calibration, unknown
+class rejection, and source-grouped deduplication are prioritized over simply increasing model
+size. The selected lesion-YOLO and EfficientNetB0 cascade is exposed through the Streamlit upload
+prototype, completing the path from discovered knowledge to an executable intelligent system.
 
 \section{Experimental Setup}
 
@@ -421,10 +457,10 @@ never replaced by the best fold.
 \toprule
 System & Accuracy (\%) & Macro F1 (\%) & Balanced acc. (\%) & Coverage (\%) & Images/s \\
 \midrule
-Disease-aware YOLO11n & 61.37 & 53.32 & 49.60 & 86.48 & 26.3 \\
-Lesion YOLO + baseline CNN & 41.32 & 29.04 & 29.99 & 100 & 28.7 \\
-Lesion YOLO + EfficientNetB0 & 66.69 & 59.02 & 58.69 & 100 & 24.5 \\
-Lesion YOLO + MobileNetV3-Large & \textbf{66.75} & 58.17 & 58.69 & 100 & 24.3 \\
+Disease-aware YOLO11n & 61.37 & 53.32 & 49.60 & 86.48 & \textbf{28.0} \\
+Lesion YOLO + baseline CNN & 41.32 & 29.04 & 29.99 & 100 & 27.2 \\
+Lesion YOLO + EfficientNetB0 & 66.69 & 59.02 & 58.69 & 100 & 26.9 \\
+Lesion YOLO + MobileNetV3-Large & \textbf{66.75} & 58.17 & 58.69 & 100 & 26.1 \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -469,8 +505,12 @@ Model & Metric & Mean $\pm$ std. (\%) & Completed folds \\
 \midrule
 Lesion YOLO11n & mAP50 & 85.34 $\pm$ 0.56 & 5/5 \\
 Lesion YOLO11n & mAP50--95 & 56.96 $\pm$ 1.00 & 5/5 \\
+Lesion YOLO11n & Precision & 82.23 $\pm$ 0.70 & 5/5 \\
+Lesion YOLO11n & Recall & 80.21 $\pm$ 0.70 & 5/5 \\
 Disease-aware YOLO11n & mAP50 & 40.90 $\pm$ 0.66 & 5/5 \\
 Disease-aware YOLO11n & mAP50--95 & 29.00 $\pm$ 0.78 & 5/5 \\
+Disease-aware YOLO11n & Precision & 49.06 $\pm$ 1.62 & 5/5 \\
+Disease-aware YOLO11n & Recall & 40.03 $\pm$ 2.74 & 5/5 \\
 Baseline CNN & Macro F1 & 20.09 $\pm$ 0.75 & 5/5 \\
 EfficientNetB0 & Macro F1 & \textbf{59.39} $\pm$ 1.99 & 5/5 \\
 MobileNetV3-Large & Macro F1 & 57.27 $\pm$ 1.44 & 5/5 \\
@@ -498,11 +538,12 @@ evidence for all 115 classes.
 \centering
 \begin{tabular}{lccccc}
 \toprule
-Classifier pipeline & PlantSeg macro F1 & PlantVillage macro F1 & Change & PlantSeg ECE & PlantVillage ECE \\
+System & PlantSeg macro F1 & PlantVillage macro F1 & Change & PlantSeg ECE & PlantVillage ECE \\
 \midrule
 Baseline CNN & 34.52 & 10.92 & $-$23.60 & 4.89 & 14.81 \\
 EfficientNetB0 & 63.63 & 35.73 & $-$27.90 & 28.86 & 42.79 \\
 MobileNetV3-Large & \textbf{64.75} & \textbf{39.03} & $-$25.72 & 28.93 & 38.24 \\
+Disease-aware YOLO11n & 63.93 & 17.59 & $-$46.34 & 11.75 & 12.05 \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -530,8 +571,8 @@ coverage collapse makes it the least robust choice under domain shift.
 \subsection{Synthetic-Corruption Robustness}
 
 \begin{table*}[t]
-\caption{Clean and severity-5 accuracy (\%). Parentheses contain the absolute change from
-the clean condition.}
+\caption{Clean and severity-5 accuracy (\%) on the fixed 200-image PlantSeg robustness subset.
+Parentheses contain the absolute change from the clean condition.}
 \label{tab:robustness-results}
 \centering
 \resizebox{\textwidth}{!}{%
@@ -539,20 +580,24 @@ the clean condition.}
 \toprule
 Model & Clean & Blur & Brightness & Contrast & JPEG & Occlusion & Crop \\
 \midrule
-Baseline CNN & 40.0 & 12.5 (-27.5) & 17.8 (-22.2) & 26.1 (-13.8) & 25.8 (-14.2) & 34.5 (-5.4) & 35.5 (-4.5) \\
-EfficientNetB0 & 67.3 & 29.7 (-37.7) & 49.6 (-17.7) & 62.0 (-5.3) & 48.5 (-18.8) & 63.2 (-4.2) & 63.6 (-3.7) \\
-MobileNetV3-Large & 66.5 & 30.5 (-36.0) & 46.8 (-19.7) & 61.8 (-4.7) & 45.7 (-20.8) & 61.3 (-5.2) & 63.8 (-2.7) \\
+Baseline CNN & 40.0 & 13.5 (-26.5) & 20.5 (-19.5) & 25.5 (-14.5) & 28.0 (-12.0) & 36.0 (-4.0) & 36.0 (-4.0) \\
+EfficientNetB0 & 65.0 & 28.5 (-36.5) & 46.5 (-18.5) & 57.5 (-7.5) & 43.5 (-21.5) & 56.5 (-8.5) & 61.5 (-3.5) \\
+MobileNetV3-Large & 68.0 & 33.0 (-35.0) & 43.5 (-24.5) & 61.0 (-7.0) & 38.5 (-29.5) & 60.5 (-7.5) & 63.0 (-5.0) \\
+Disease-aware YOLO11n & 57.5 & 14.0 (-43.5) & 36.0 (-21.5) & 47.0 (-10.5) & 7.5 (-50.0) & 53.5 (-4.0) & 49.0 (-8.5) \\
 \bottomrule
 \end{tabular}}
 \end{table*}
 
-Gaussian blur is the most damaging transformation for every model. At severity 5, EfficientNetB0
-falls from 67.3\% to 29.7\% accuracy and MobileNetV3-Large falls from 66.5\% to 30.5\%. Brightness
-and JPEG compression cause intermediate degradation. Crop and occlusion are comparatively well
+Gaussian blur is the most damaging transformation for all three classifier pipelines. At severity
+5, EfficientNetB0 falls from 65.0\% to 28.5\% accuracy and MobileNetV3-Large falls from 68.0\% to
+33.0\%. JPEG compression is even more damaging to disease-aware YOLO11n, which falls from 57.5\%
+to 7.5\%. Brightness and JPEG compression cause intermediate degradation for the classifier
+pipelines. Crop and occlusion are comparatively well
 tolerated, consistent with the random resized crop and horizontal-flip augmentation used during
 classifier training. The pretrained classifiers lose more absolute accuracy to severe blur than
 the baseline CNN, although they remain substantially more accurate. RQ4 therefore identifies blur
-as the principal tested acquisition weakness.
+as the principal weakness of the classifier pipelines and JPEG compression as the principal
+weakness of standalone YOLO.
 
 \subsection{Grad-CAM Alignment}
 
@@ -565,10 +610,13 @@ as the principal tested acquisition weakness.
 Metric & Mean (\%) & Median (\%) \\
 \midrule
 IoU, threshold 0.5 & 21.3 & 18.9 \\
+Precision, threshold 0.5 & 51.6 & 50.0 \\
+Recall, threshold 0.5 & 31.3 & 28.4 \\
 IoU, top 20\% & 24.2 & 22.1 \\
 Precision, top 20\% & 41.2 & 34.2 \\
 Recall, top 20\% & 52.7 & 48.1 \\
 Mask energy fraction & 41.5 & 38.2 \\
+Mask area fraction & 21.3 & 14.2 \\
 Pointing-game hit rate & 58.8 & 100.0 \\
 \bottomrule
 \end{tabular}
@@ -588,15 +636,16 @@ A fair deployment comparison runs only the selected classifier in the cascade, t
 (image load, YOLO inference, crop, and one classifier) at batch size 1 on the same Apple Silicon
 (MPS) accelerator used for training, over 200 sampled test images after a 10-image warm-up.
 Table~\ref{tab:primary-results} reports the resulting throughput. Standalone disease-aware YOLO is
-the smallest model by far (2.66M parameters, 5.6~MB checkpoint) and reaches 26.3 images/s mean
-throughput (18.1~ms median latency), but its 95th-percentile latency is far higher (231~ms),
+the smallest model by far (2.66M parameters, 5.6~MB checkpoint) and reaches 28.0 images/s mean
+throughput (27.0~ms median latency), but its 95th-percentile latency is higher (122.3~ms),
 indicating occasional slow outlier images rather than uniformly fast inference. The baseline CNN
-is the fastest cascade at 28.7 images/s (3.0M parameters, 10.5~MB), and
-the two pretrained classifiers are close to each other and slightly slower (EfficientNetB0: 24.5
-images/s, 6.7M parameters, 55.8~MB; MobileNetV3-Large: 24.3 images/s, 6.9M parameters, 58.0~MB).
-The throughput ranking does not track accuracy: the fastest system (baseline CNN) is also the
-least accurate, and MobileNetV3-Large trades a marginal throughput cost for a 29-point higher
-macro F1 than the baseline CNN. All four systems remain comfortably above real-time single-image
+is the fastest cascade at 27.2 images/s (3.0M parameters, 10.5~MB), and
+the two pretrained classifiers are close to each other and slightly slower (EfficientNetB0: 26.9
+images/s, 6.7M parameters, 55.8~MB; MobileNetV3-Large: 26.1 images/s, 6.9M parameters, 58.0~MB).
+The throughput ranking does not track accuracy: standalone YOLO is fastest but trails both
+pretrained classifier pipelines in macro F1, while the baseline CNN is the fastest cascade and the
+least accurate system. MobileNetV3-Large trades a small throughput cost for a 29-point higher macro
+F1 than the baseline CNN. All four systems remain comfortably above real-time single-image
 throughput requirements for an advisory or field-diagnosis tool on this hardware. The earlier
 figure obtained by running all three classifiers simultaneously must not be used as a direct
 latency comparison with standalone YOLO, since it measures combined rather than single-classifier
@@ -659,8 +708,9 @@ and the from-scratch baseline CNN at 20.09\%, $\pm$0.75 \ppoints). The matched P
 cross-domain evaluation shows this ranking is preserved but every system degrades substantially
 under domain shift: MobileNetV3-Large remains the strongest classifier pipeline (39.03\% macro F1,
 down 25.72 \ppoints{} from PlantSeg) while the standalone YOLO's usable coverage collapses from
-86.8\% to 43.2\%. Severe blur is the largest tested corruption weakness, and Grad-CAM places 41.5\%
-of its activation energy inside lesions occupying 21.3\% of the image on average.
+86.8\% to 43.2\%. Severe blur is the largest corruption weakness for the classifier pipelines,
+while JPEG compression causes the largest loss for standalone YOLO. Grad-CAM places 41.5\% of its
+activation energy inside lesions occupying 21.3\% of the image on average.
 
 Overall, the available results support explicit lesion localization as a useful basis for
 field-image disease recognition, and five-fold cross-validation confirms the model ranking is not
